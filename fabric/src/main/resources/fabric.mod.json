@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "swordthrow",
+  "version": "${version}",
+  "name": "Sword Throw",
+  "description": "Charge the drop key to throw held items as physical projectiles with impact damage, embedding, recovery, animation, and trails.",
+  "authors": ["Derk Ottersberg"],
+  "contact": {
+    "sources": "https://github.com/DerkOttersberg/sword-throw",
+    "issues": "https://github.com/DerkOttersberg/sword-throw/issues"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/swordthrow/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["io.github.derkottersberg.swordthrow.fabric.SwordThrowFabric"],
+    "client": ["io.github.derkottersberg.swordthrow.fabric.SwordThrowFabricClient"],
+    "modmenu": ["io.github.derkottersberg.swordthrow.fabric.SwordThrowModMenuIntegration"]
+  },
+  "mixins": ["swordthrow.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "fabric-api": "*",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "seamlessapi": ">=2.0.0 <3.0.0"
+  },
+  "suggests": {
+    "modmenu": ">=20.0.1"
+  }
+}

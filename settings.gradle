@@ -1,21 +1,28 @@
 pluginManagement {
-	repositories {
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		mavenCentral()
-		gradlePluginPortal()
-	}
+    repositories {
+        gradlePluginPortal()
+        maven { url = 'https://maven.architectury.dev/' }
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://maven.minecraftforge.net/' }
+    }
 }
 
-def siblingApi = file("../Seamless-API")
-def localApi = file("Seamless-API")
-
-if (siblingApi.exists()) {
-	includeBuild(siblingApi)
-} else if (localApi.exists()) {
-	includeBuild(localApi)
-} else {
-	throw new GradleException("Seamless-API not found. Expected ../Seamless-API or ./Seamless-API")
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
+
+gradle.beforeProject { project ->
+    if (project.name == 'forge') {
+        project.ext.set('loom.platform', 'forge')
+    } else if (project.name == 'neoforge') {
+        project.ext.set('loom.platform', 'neoforge')
+    } else {
+        project.ext.set('loom.platform', 'fabric')
+    }
+}
+
+rootProject.name = 'sword-throw'
+include 'common', 'fabric', 'forge', 'neoforge'
+
+// Seamless API stays an independent source composite and is never shaded.
+includeBuild('../seamless-api')

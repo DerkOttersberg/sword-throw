@@ -1,35 +1,64 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
-
 name: build
-on: [pull_request, push]
+
+on:
+  push:
+    branches: [main, 'port/**', 'support/**', 'feat/**', 'fix/**', 'release/**']
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  wrapper-validation:
     runs-on: ubuntu-24.04
     steps:
-      - name: checkout repository
-        uses: actions/checkout@v4
-      - name: checkout Seamless-API
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/Seamless-API
-          path: Seamless-API
-      - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@v4
-      - name: setup jdk
-        uses: actions/setup-java@v4
+          path: suite/sword-throw
+      - uses: gradle/actions/wrapper-validation@v4
+
+  loader-builds:
+    strategy:
+      fail-fast: false
+      matrix:
+        loader: [fabric, forge, neoforge]
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: suite/sword-throw
+    steps:
+      - uses: actions/checkout@v4
         with:
-          java-version: '21'
-          distribution: 'microsoft'
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
-      - name: capture build artifacts
-        uses: actions/upload-artifact@v4
+          path: suite/sword-throw
+      - uses: actions/checkout@v4
         with:
-          name: Artifacts
-          path: build/libs/
+          repository: DerkOttersberg/seamless-api
+          ref: 694bea2a03083727843d8d4b6005dd173100bf8e
+          path: suite/seamless-api
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :common:check :${{ matrix.loader }}:check :${{ matrix.loader }}:build
+
+  verification:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: suite/sword-throw
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: suite/sword-throw
+      - uses: actions/checkout@v4
+        with:
+          repository: DerkOttersberg/seamless-api
+          ref: 694bea2a03083727843d8d4b6005dd173100bf8e
+          path: suite/seamless-api
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew clean check build

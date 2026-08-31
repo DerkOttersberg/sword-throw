@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="CC0-1.0"
+issueTrackerURL="https://github.com/DerkOttersberg/sword-throw/issues"
+
+[[mods]]
+modId="swordthrow"
+version="${mod_version}"
+displayName="Sword Throw"
+displayURL="https://github.com/DerkOttersberg/sword-throw"
+logoFile="assets/swordthrow/icon.png"
+authors="Derk Ottersberg"
+description='''Charge the drop key to throw held items as physical projectiles with impact damage, embedding, recovery, animation, and trails.'''
+
+[[mixins]]
+config="swordthrow.mixins.json"
+
+[[dependencies.swordthrow]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.swordthrow]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.swordthrow]]
+modId="seamlessapi"
+mandatory=true
+versionRange="[2.0.0,3.0.0)"
+ordering="AFTER"
+side="BOTH"

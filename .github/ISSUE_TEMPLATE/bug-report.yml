@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible Sword Throw problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Mod loader
+      options: [Fabric, Forge, NeoForge]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Exact versions
+      description: Include Minecraft, Sword Throw, Seamless API, and loader versions.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: List the smallest sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and mod list
+      description: Drag in latest.log and any crash report; do not paste secrets.
