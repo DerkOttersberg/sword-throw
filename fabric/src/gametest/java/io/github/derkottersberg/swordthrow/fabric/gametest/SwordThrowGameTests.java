@@ -21,6 +21,11 @@ public final class SwordThrowGameTests {
         SwordThrowGameTestScenario.rejectsChangedStack(helper);
     }
 
+    @GameTest(maxTicks = 110)
+    public void missingAndStaleSessionsAreRejectedWithoutConsumingItems(GameTestHelper helper) {
+        SwordThrowGameTestScenario.rejectsMissingAndStaleSessions(helper);
+    }
+
     @GameTest(maxTicks = 40)
     public void configuredDamageAndTagPrecedence(GameTestHelper helper) {
         SwordThrowGameTestScenario.validatesConfiguredImpactDamageAndTagPrecedence(helper);

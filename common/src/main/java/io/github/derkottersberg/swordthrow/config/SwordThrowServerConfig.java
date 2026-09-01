@@ -2,6 +2,10 @@ package io.github.derkottersberg.swordthrow.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import io.github.derkottersberg.swordthrow.SwordThrow;
 import java.io.IOException;
 import java.io.Reader;
@@ -41,8 +45,7 @@ public final class SwordThrowServerConfig {
 
         boolean saveNormalized = false;
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            ConfigData loaded = GSON.fromJson(reader, ConfigData.class);
-            data = sanitize(loaded);
+            data = deserialize(JsonParser.parseReader(reader));
             saveNormalized = true;
         } catch (IOException | RuntimeException exception) {
             SwordThrow.LOGGER.warn("Could not read {}. Safe defaults will be used.", path, exception);
@@ -143,7 +146,103 @@ public final class SwordThrowServerConfig {
     }
 
     static ConfigData deserializeForTests(String json) {
-        return sanitize(GSON.fromJson(json, ConfigData.class));
+        return deserialize(JsonParser.parseString(json));
+    }
+
+    private static ConfigData deserialize(JsonElement root) {
+        if (root == null || !root.isJsonObject()) {
+            throw new JsonParseException("Sword Throw server config root must be a JSON object");
+        }
+
+        JsonObject object = root.getAsJsonObject();
+        ConfigData loaded = new ConfigData();
+        loaded.baseHandDamage = readFloat(object, "baseHandDamage", loaded.baseHandDamage);
+        loaded.velocityDamageBase = readFloat(object, "velocityDamageBase", loaded.velocityDamageBase);
+        loaded.velocityDamageFactor = readFloat(object, "velocityDamageFactor", loaded.velocityDamageFactor);
+        loaded.cleanFlightDamageMultiplier = readFloat(
+            object,
+            "cleanFlightDamageMultiplier",
+            loaded.cleanFlightDamageMultiplier
+        );
+        loaded.standardDamageMultiplier = readFloat(
+            object,
+            "standardDamageMultiplier",
+            loaded.standardDamageMultiplier
+        );
+        loaded.spearDamageMultiplier = readFloat(object, "spearDamageMultiplier", loaded.spearDamageMultiplier);
+        loaded.spearMinimumAttackDamage = readFloat(
+            object,
+            "spearMinimumAttackDamage",
+            loaded.spearMinimumAttackDamage
+        );
+        loaded.spearBaseDamageMultiplier = readFloat(
+            object,
+            "spearBaseDamageMultiplier",
+            loaded.spearBaseDamageMultiplier
+        );
+        loaded.spearFlatDamageBonus = readFloat(object, "spearFlatDamageBonus", loaded.spearFlatDamageBonus);
+        loaded.swordDamageMultiplier = readFloat(object, "swordDamageMultiplier", loaded.swordDamageMultiplier);
+        loaded.axeDamageMultiplier = readFloat(object, "axeDamageMultiplier", loaded.axeDamageMultiplier);
+        loaded.axeMinimumDamage = readFloat(object, "axeMinimumDamage", loaded.axeMinimumDamage);
+        loaded.pickaxeDamageMultiplier = readFloat(
+            object,
+            "pickaxeDamageMultiplier",
+            loaded.pickaxeDamageMultiplier
+        );
+        loaded.pickaxeMinimumDamage = readFloat(object, "pickaxeMinimumDamage", loaded.pickaxeMinimumDamage);
+        loaded.shovelAndHoeDamageMultiplier = readFloat(
+            object,
+            "shovelAndHoeDamageMultiplier",
+            loaded.shovelAndHoeDamageMultiplier
+        );
+        loaded.shovelAndHoeMinimumDamage = readFloat(
+            object,
+            "shovelAndHoeMinimumDamage",
+            loaded.shovelAndHoeMinimumDamage
+        );
+        loaded.damageableItemDamageMultiplier = readFloat(
+            object,
+            "damageableItemDamageMultiplier",
+            loaded.damageableItemDamageMultiplier
+        );
+        loaded.damageableItemMinimumDamage = readFloat(
+            object,
+            "damageableItemMinimumDamage",
+            loaded.damageableItemMinimumDamage
+        );
+        loaded.blockItemBaseDamage = readFloat(object, "blockItemBaseDamage", loaded.blockItemBaseDamage);
+        loaded.miscItemBaseDamage = readFloat(object, "miscItemBaseDamage", loaded.miscItemBaseDamage);
+        return sanitize(loaded);
+    }
+
+    private static float readFloat(JsonObject object, String fieldName, float fallback) {
+        JsonElement element = object.get(fieldName);
+        if (element == null || element.isJsonNull()) {
+            return fallback;
+        }
+
+        if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            SwordThrow.LOGGER.warn(
+                "Invalid Sword Throw server config value {}={}; expected a JSON number. Using default {}.",
+                fieldName,
+                element,
+                fallback
+            );
+            return fallback;
+        }
+
+        try {
+            return element.getAsFloat();
+        } catch (RuntimeException exception) {
+            SwordThrow.LOGGER.warn(
+                "Invalid Sword Throw server config value {}={}; expected a JSON number. Using default {}.",
+                fieldName,
+                element,
+                fallback,
+                exception
+            );
+            return fallback;
+        }
     }
 
     private static float sanitizeDamage(String fieldName, float value, float fallback) {

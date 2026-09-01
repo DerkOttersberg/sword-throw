@@ -28,6 +28,11 @@ public final class SwordThrowNeoForgeGameTests {
             "changed_stack_rejected",
             () -> SwordThrowGameTestScenario::rejectsChangedStack
         );
+    private static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> MISSING_AND_STALE_REJECTED =
+        TEST_FUNCTIONS.register(
+            "missing_and_stale_sessions_rejected",
+            () -> SwordThrowGameTestScenario::rejectsMissingAndStaleSessions
+        );
     private static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> DUPLICATE_START =
         TEST_FUNCTIONS.register(
             "duplicate_start_preserves_charge",
@@ -59,6 +64,7 @@ public final class SwordThrowNeoForgeGameTests {
         );
         registerTest(event, environment, "authoritative_throw", AUTHORITATIVE_THROW, 40);
         registerTest(event, environment, "changed_stack_rejected", CHANGED_STACK_REJECTED, 40);
+        registerTest(event, environment, "missing_and_stale_sessions_rejected", MISSING_AND_STALE_REJECTED, 110);
         registerTest(event, environment, "duplicate_start_preserves_charge", DUPLICATE_START, 40);
         registerTest(event, environment, "configured_damage_and_tag_precedence", CONFIGURED_DAMAGE_AND_TAGS, 40);
         registerTest(event, environment, "embedding_bounce_and_pickup", EMBEDDING_BOUNCE_AND_PICKUP, 40);

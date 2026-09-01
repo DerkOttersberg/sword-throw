@@ -43,11 +43,12 @@ tasks.named('runGameTest') {
     doLast {
         def logFile = layout.buildDirectory.file('run/gameTest/logs/latest.log').get().asFile
         def match = logFile.exists() ? (logFile.text =~ /(\d+) tests are now running/) : null
-        if (match == null || !match.find() || match.group(1).toInteger() < 6) {
-            throw new GradleException('Fabric GameTest run did not discover all five Sword Throw scenarios')
+        if (match == null || !match.find() || match.group(1).toInteger() < 7) {
+            throw new GradleException('Fabric GameTest run did not discover all six Sword Throw scenarios')
         }
     }
 }
+tasks.named('check') { dependsOn tasks.named('runGameTest') }
 
 def metadataProperties = [
     version: project.version.toString(),

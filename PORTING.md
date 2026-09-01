@@ -31,7 +31,7 @@ Sword Throw uses Architectury Loom as build tooling only. Architectury API is no
 
 ## Live verification
 
-Each loader must discover the built-in environment test plus all five Sword Throw scenarios; the Gradle tasks fail when fewer than six tests are reported:
+Each loader must discover the built-in environment test plus all six Sword Throw scenarios; the Gradle tasks fail when fewer than seven tests are reported:
 
 ```bash
 ./gradlew :fabric:runGameTest
@@ -39,6 +39,6 @@ Each loader must discover the built-in environment test plus all five Sword Thro
 ./gradlew :neoforge:runGameTestServer
 ```
 
-The shared scenario bodies exercise authoritative timing, exact-stack rejection, duplicate-start protection, immediate active-session sync for a newly tracking player, configured entity-impact damage, live throwable/cannot-throw tag precedence, embedding versus bounce, component-safe pickup, payload codecs, stable registry IDs, and component/enchantment/stack-count persistence through projectile save/reload. Release jars must exclude all GameTest bootstrap classes and test-only tag overlays.
+The shared scenario bodies exercise authoritative timing, exact-stack rejection, missing/stale-session rejection, duplicate-start protection, immediate active-session sync for a newly tracking player, configured entity-impact damage, live throwable/cannot-throw tag precedence, embedding versus bounce, component-safe pickup, payload codecs, stable registry IDs, and component/enchantment/stack-count persistence through projectile save/reload. The late-tracker scenario records the exact observer and attempted `CHARGING` payload at the platform boundary; negotiated delivery and rendered two-client visuals still require the real-client matrix. Release jars must exclude all GameTest bootstrap classes and test-only tag overlays.
 
 Archive an existing branch tip before retiring it. Permanent work happens on `main`; use `port/mc-<version>`, `feat/<name>`, `fix/<name>`, and `release/<version>` for short-lived work.

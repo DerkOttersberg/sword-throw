@@ -8,9 +8,16 @@ import io.github.derkottersberg.swordthrow.entity.ThrownSwordEntity;
 import io.github.derkottersberg.swordthrow.gameplay.ChargeMath;
 import io.github.derkottersberg.swordthrow.gameplay.SwordThrowItemTags;
 import io.github.derkottersberg.swordthrow.gameplay.ThrowItemRules;
+import io.github.derkottersberg.swordthrow.internal.PlatformServices;
 import io.github.derkottersberg.swordthrow.network.ThrowActionPayload;
 import io.github.derkottersberg.swordthrow.network.ThrowStatePayload;
 import io.netty.buffer.Unpooled;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -20,6 +27,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProblemReporter;
@@ -150,13 +158,44 @@ public final class SwordThrowGameTestScenario {
         ServerPlayer player = makePlayerInTest(helper, 1);
         ServerPlayer lateObserver = makePlayerInTest(helper, 2);
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.GOLDEN_SWORD));
+        int startedAtServerTick = helper.getLevel().getServer().getTickCount();
         SwordThrow.handleThrowAction(player, ThrowActionPayload.start());
-        helper.assertTrue(
-            SwordThrow.syncActiveChargeTo(lateObserver, player),
-            "A distinct newly tracking client could not obtain the active authoritative charge"
-        );
 
-        helper.runAfterDelay(10L, () -> SwordThrow.handleThrowAction(player, ThrowActionPayload.start()));
+        helper.runAfterDelay(10L, () -> {
+            SwordThrow.handleThrowAction(player, ThrowActionPayload.start());
+            int expectedChargeTicks = ChargeMath.clampCharge(
+                (long)helper.getLevel().getServer().getTickCount() - startedAtServerTick
+            );
+            DeliveryCapture capture = captureDirectDelivery(() ->
+                SwordThrow.syncActiveChargeTo(lateObserver, player));
+            helper.assertTrue(capture.accepted(), "The active charge was rejected for a newly tracking player");
+            helper.assertValueEqual(
+                capture.deliveries().size(),
+                1,
+                "Late tracking did not attempt exactly one direct payload delivery"
+            );
+            DirectDelivery delivery = capture.deliveries().getFirst();
+            helper.assertTrue(
+                delivery.target() == lateObserver,
+                "Late tracking delivered the charge snapshot to the wrong observer"
+            );
+            helper.assertTrue(
+                delivery.payload() instanceof ThrowStatePayload,
+                "Late tracking attempted to deliver the wrong payload type"
+            );
+            ThrowStatePayload state = (ThrowStatePayload)delivery.payload();
+            helper.assertValueEqual(state.playerEntityId(), player.getId(), "The late snapshot named the wrong player");
+            helper.assertValueEqual(
+                state.phase(),
+                ThrowStatePayload.Phase.CHARGING,
+                "The late snapshot did not report an active charge"
+            );
+            helper.assertValueEqual(
+                state.chargeTicks(),
+                expectedChargeTicks,
+                "The late snapshot did not contain the authoritative server charge time"
+            );
+        });
         helper.runAfterDelay(16L, () -> {
             SwordThrow.handleThrowAction(player, ThrowActionPayload.release(16));
             helper.assertTrue(
@@ -164,6 +203,38 @@ public final class SwordThrowGameTestScenario {
                 "A duplicate START reset the valid authoritative charge"
             );
             helper.assertTrue(findProjectile(helper, player) != null, "The duplicate-start player did not throw");
+            helper.succeed();
+        });
+    }
+
+    public static void rejectsMissingAndStaleSessions(GameTestHelper helper) {
+        ServerPlayer stalePlayer = makePlayerInTest(helper, 1);
+        ItemStack staleStack = new ItemStack(Items.IRON_AXE);
+        staleStack.set(DataComponents.CUSTOM_NAME, Component.literal("Stale session must conserve me"));
+        stalePlayer.setItemInHand(InteractionHand.MAIN_HAND, staleStack.copy());
+        SwordThrow.handleThrowAction(stalePlayer, ThrowActionPayload.start());
+
+        helper.runAfterDelay(ChargeMath.MAX_SESSION_AGE_TICKS + 2L, () -> {
+            SwordThrow.handleThrowAction(stalePlayer, ThrowActionPayload.release(ChargeMath.MAX_CHARGE_TICKS));
+            helper.assertTrue(findProjectile(helper, stalePlayer) == null, "A stale charge spawned a projectile");
+            helper.assertTrue(
+                ItemStack.matches(stalePlayer.getMainHandItem(), staleStack),
+                "Rejecting a stale charge changed or consumed the held stack"
+            );
+
+            ServerPlayer missingPlayer = makePlayerInTest(helper, 2);
+            ItemStack missingStack = new ItemStack(Items.DIAMOND_PICKAXE);
+            missingStack.set(DataComponents.CUSTOM_NAME, Component.literal("Missing session must conserve me"));
+            missingPlayer.setItemInHand(InteractionHand.MAIN_HAND, missingStack.copy());
+            SwordThrow.handleThrowAction(missingPlayer, ThrowActionPayload.release(ChargeMath.MAX_CHARGE_TICKS));
+            helper.assertTrue(
+                findProjectile(helper, missingPlayer) == null,
+                "A RELEASE without a server charge session spawned a projectile"
+            );
+            helper.assertTrue(
+                ItemStack.matches(missingPlayer.getMainHandItem(), missingStack),
+                "Rejecting a RELEASE without START changed or consumed the held stack"
+            );
             helper.succeed();
         });
     }
@@ -326,6 +397,50 @@ public final class SwordThrowGameTestScenario {
             entity -> entity
         );
         return reloaded instanceof ThrownSwordEntity thrownSword ? thrownSword : null;
+    }
+
+    private static DeliveryCapture captureDirectDelivery(BooleanSupplier action) {
+        try {
+            Field servicesField = SwordThrow.class.getDeclaredField("platformServices");
+            servicesField.setAccessible(true);
+            PlatformServices delegate = (PlatformServices)servicesField.get(null);
+            List<DirectDelivery> deliveries = new ArrayList<>();
+            PlatformServices recordingServices = (PlatformServices)Proxy.newProxyInstance(
+                PlatformServices.class.getClassLoader(),
+                new Class<?>[] {PlatformServices.class},
+                (proxy, method, arguments) -> {
+                    if (method.getName().equals("sendToPlayer")
+                        && arguments != null
+                        && arguments.length == 2
+                        && arguments[0] instanceof ServerPlayer target
+                        && arguments[1] instanceof CustomPacketPayload payload) {
+                        deliveries.add(new DirectDelivery(target, payload));
+                    }
+                    try {
+                        return method.invoke(delegate, arguments);
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                }
+            );
+
+            servicesField.set(null, recordingServices);
+            boolean accepted;
+            try {
+                accepted = action.getAsBoolean();
+            } finally {
+                servicesField.set(null, delegate);
+            }
+            return new DeliveryCapture(accepted, List.copyOf(deliveries));
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not install the GameTest network-delivery probe", exception);
+        }
+    }
+
+    private record DirectDelivery(ServerPlayer target, CustomPacketPayload payload) {
+    }
+
+    private record DeliveryCapture(boolean accepted, List<DirectDelivery> deliveries) {
     }
 
     private static final class TestThrownSwordEntity extends ThrownSwordEntity {

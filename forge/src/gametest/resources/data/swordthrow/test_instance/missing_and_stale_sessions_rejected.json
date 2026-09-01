@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:function",
+  "environment": "minecraft:default",
+  "function": "swordthrow:missing_and_stale_sessions_rejected",
+  "max_ticks": 110,
+  "structure": "forge:empty3x3x3"
+}

@@ -82,6 +82,10 @@ final class RemoteThrowPoseTracker {
         return poses.size();
     }
 
+    void remove(int entityId) {
+        poses.remove(entityId);
+    }
+
     void clear() {
         poses.clear();
     }

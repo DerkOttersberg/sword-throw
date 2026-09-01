@@ -19,9 +19,9 @@ public final class SwordThrowClient {
     private static final int CHARGE_BAR_HEIGHT = 3;
     private static final ThrowPoseState LOCAL_POSE = new ThrowPoseState();
     private static final RemoteThrowPoseTracker REMOTE_POSES = new RemoteThrowPoseTracker();
+    private static final ClientContextTracker<Level, Player> CLIENT_CONTEXT = new ClientContextTracker<>();
 
     private static ClientPlatformServices services;
-    private static Level currentLevel;
     private static long clientTicks;
     private static boolean charging;
     private static int chargeTicks;
@@ -44,9 +44,17 @@ public final class SwordThrowClient {
     public static void tick(Minecraft client) {
         clientTicks++;
         migrateDropKeyBinding(client);
-        if (client.level != currentLevel) {
-            currentLevel = client.level;
-            resetAllClientState();
+        Player previousPlayer = CLIENT_CONTEXT.player();
+        switch (CLIENT_CONTEXT.update(client.level, client.player)) {
+            case LEVEL_CHANGED -> resetAllClientState();
+            case PLAYER_CHANGED -> {
+                resetLocalInputState();
+                if (previousPlayer != null) {
+                    REMOTE_POSES.remove(previousPlayer.getId());
+                }
+            }
+            case NONE -> {
+            }
         }
 
         LOCAL_POSE.tick();

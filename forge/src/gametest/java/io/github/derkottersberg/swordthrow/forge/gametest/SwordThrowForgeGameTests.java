@@ -44,6 +44,11 @@ public final class SwordThrowForgeGameTests {
         SwordThrowGameTestScenario.rejectsChangedStack(helper);
     }
 
+    @GameTest(name = "missing_and_stale_sessions_rejected", maxTicks = 110)
+    public static void missingAndStaleSessionsRejected(GameTestHelper helper) {
+        SwordThrowGameTestScenario.rejectsMissingAndStaleSessions(helper);
+    }
+
     @GameTest(name = "duplicate_start_preserves_charge", maxTicks = 40)
     public static void duplicateStartPreservesCharge(GameTestHelper helper) {
         SwordThrowGameTestScenario.duplicateStartDoesNotReset(helper);

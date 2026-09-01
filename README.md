@@ -6,7 +6,7 @@ Sword Throw lets you charge a configurable Throw Item key and launch nearly any 
 
 | Minecraft | Java | Fabric | Forge | NeoForge |
 |---|---:|---:|---:|---:|
-| 26.2 | 25 | 0.19.3 + Fabric API 0.158.x | 65.1.3 | 26.2.0.75 |
+| 26.2 | 25 | 0.19.3 + Fabric API 0.158.x–0.159.x | 65.1.3 | 26.2.0.75 |
 
 [Seamless API](https://github.com/DerkOttersberg/seamless-api) 2.x is required and is not bundled into Sword Throw.
 

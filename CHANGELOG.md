@@ -7,7 +7,7 @@
 - Added `throwable`, `cannot_throw`, `spears`, and `embeddable` item tags. Explicit denial wins, broad untagged-item compatibility remains, and spear-name heuristics were removed.
 - Added a validated, atomically written server damage configuration covering the full existing damage formula while preserving all default values.
 - Preserved the existing Drop Item behavior while adding a separately configurable Throw Item binding and one-time binding migration.
-- Added five live Fabric, Forge, and NeoForge GameTest scenarios for authoritative timing, changed-stack rejection, duplicate-start/late-tracker behavior, configured impact damage, tag precedence, embedding/bounce/pickup, and component/enchantment/NBT conservation.
+- Added six live Fabric, Forge, and NeoForge GameTest scenarios for authoritative timing, changed-stack and missing/stale-session rejection, duplicate-start/late-tracker behavior, configured impact damage, tag precedence, embedding/bounce/pickup, and component/enchantment/NBT conservation.
 - Tightened Fabric API metadata to the supported 0.158.x/0.159.x range and updated the Seamless API development pin to `2.0.1+mc26.2` while keeping the runtime dependency on compatible 2.x releases.
 
 ## 2.0.0+mc26.2

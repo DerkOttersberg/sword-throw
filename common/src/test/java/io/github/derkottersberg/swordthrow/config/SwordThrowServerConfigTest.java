@@ -97,6 +97,32 @@ class SwordThrowServerConfigTest {
     }
 
     @Test
+    void everyTypeInvalidFieldFallsBackWithoutDiscardingValidSiblings() throws ReflectiveOperationException {
+        SwordThrowServerConfig.ConfigData defaults = new SwordThrowServerConfig.ConfigData();
+        for (ConfigField configField : CONFIG_FIELDS) {
+            String companion = configField.name().equals("miscItemBaseDamage")
+                ? "baseHandDamage"
+                : "miscItemBaseDamage";
+            SwordThrowServerConfig.ConfigData parsed = SwordThrowServerConfig.deserializeForTests(
+                "{\"" + configField.name() + "\":{\"invalid\":true},\"" + companion + "\":7.0}"
+            );
+
+            assertEquals(
+                field(configField.name()).getFloat(defaults),
+                field(configField.name()).getFloat(parsed),
+                0.0001F,
+                () -> configField.name() + " did not use its own default after a type-invalid value"
+            );
+            assertEquals(
+                7.0F,
+                field(companion).getFloat(parsed),
+                0.0001F,
+                () -> configField.name() + " caused a valid sibling field to be discarded"
+            );
+        }
+    }
+
+    @Test
     void selectsIndependentStandardAndSpearMultipliers() {
         SwordThrowServerConfig.replaceForTests(new SwordThrowServerConfig.ConfigData(0.5F, 0.2F));
         assertEquals(0.5F, SwordThrowServerConfig.get().standardDamageMultiplier(), 0.0001F);
