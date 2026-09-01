@@ -20,7 +20,7 @@
   "mixins": ["swordthrow.mixins.json"],
   "depends": {
     "fabricloader": ">=0.19.3",
-    "fabric-api": "*",
+    "fabric-api": "${fabric_api_range}",
     "minecraft": "~26.2",
     "java": ">=25",
     "seamlessapi": ">=2.0.0 <3.0.0"

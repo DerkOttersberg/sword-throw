@@ -1,8 +1,11 @@
 package io.github.derkottersberg.swordthrow.internal;
 
+import java.nio.file.Path;
 import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
@@ -15,6 +18,8 @@ import net.minecraft.world.level.block.state.BlockState;
 public interface PlatformServices {
     String loaderName();
 
+    Path configDirectory();
+
     <T extends Entity> RegistryHandle<EntityType<T>> registerEntityType(
         String path,
         Supplier<EntityType<T>> factory
@@ -23,6 +28,10 @@ public interface PlatformServices {
     int getEnchantmentLevel(ItemStack stack, Holder<Enchantment> enchantment);
 
     SoundType getSoundType(BlockState state, LevelReader level, BlockPos pos, Entity entity);
+
+    void sendToPlayer(ServerPlayer target, CustomPacketPayload payload);
+
+    void sendToTrackingAndSelf(ServerPlayer source, CustomPacketPayload payload);
 
     @FunctionalInterface
     interface RegistryHandle<T> extends Supplier<T> {

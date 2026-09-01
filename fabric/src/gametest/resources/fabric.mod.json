@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "swordthrow-gametest",
+  "version": "1.0.0",
+  "name": "Sword Throw GameTests",
+  "environment": "server",
+  "entrypoints": {
+    "fabric-gametest": [
+      "io.github.derkottersberg.swordthrow.fabric.gametest.SwordThrowGameTests"
+    ]
+  },
+  "depends": {
+    "swordthrow": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

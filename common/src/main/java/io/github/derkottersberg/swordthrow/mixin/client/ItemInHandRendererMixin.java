@@ -2,6 +2,7 @@ package io.github.derkottersberg.swordthrow.mixin.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import io.github.derkottersberg.swordthrow.client.ThrowPoseState;
+import io.github.derkottersberg.swordthrow.client.SwordThrowClient;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -37,13 +38,14 @@ public abstract class ItemInHandRendererMixin {
         }
 
         if (hand == InteractionHand.MAIN_HAND && !item.isEmpty()) {
-            ThrowPoseState.applyMainHandPose(player, poseStack, partialTick);
+            SwordThrowClient.localPoseState().applyMainHandPose(player, poseStack, partialTick);
             return;
         }
 
-        if (hand == InteractionHand.OFF_HAND && item.isEmpty() && ThrowPoseState.isOffHandVisible()) {
+        ThrowPoseState poseState = SwordThrowClient.localPoseState();
+        if (hand == InteractionHand.OFF_HAND && item.isEmpty() && poseState.isOffHandVisible()) {
             HumanoidArm offArm = player.getMainArm().getOpposite();
-            ThrowPoseState.applyOffHandAimContext(player, poseStack, offArm, partialTick);
+            poseState.applyOffHandAimContext(player, poseStack, offArm, partialTick);
             ((ItemInHandRendererAccessor) (Object) this).swordthrow$renderPlayerArm(
                 poseStack,
                 collector,

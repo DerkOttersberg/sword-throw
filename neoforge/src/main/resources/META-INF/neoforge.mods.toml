@@ -22,6 +22,9 @@ versionRange="${neo_version_range}"
 ordering="NONE"
 side="BOTH"
 
+[features.swordthrow]
+javaVersion="[25,)"
+
 [[dependencies.swordthrow]]
 modId="minecraft"
 type="required"

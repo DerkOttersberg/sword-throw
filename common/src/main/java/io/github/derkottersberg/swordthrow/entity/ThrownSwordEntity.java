@@ -1,9 +1,10 @@
 package io.github.derkottersberg.swordthrow.entity;
 
 import io.github.derkottersberg.swordthrow.SwordThrow;
+import io.github.derkottersberg.swordthrow.config.SwordThrowServerConfig;
+import io.github.derkottersberg.swordthrow.gameplay.ThrowItemRules;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
@@ -23,7 +24,6 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -60,15 +60,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     private static final double EMBED_HEAD_ON_THRESHOLD = 0.24D;
     private static final float EMBEDDED_ROLL_THRESHOLD = 0.38F;
     private static final int MAX_TRAIL_POINTS = 20;
-    private static final float BASE_HAND_DAMAGE = 1.0F;
-    private static final float VELOCITY_DAMAGE_FACTOR = 0.7F;
-    private static final float VELOCITY_DAMAGE_BASE = 0.65F;
-    private static final float CLEAN_FLIGHT_DAMAGE_BONUS = 1.35F;
-    private static final float SPEAR_DAMAGE_MULTIPLIER = 1.45F;
-    private static final float SPEAR_DAMAGE_FLAT_BONUS = 2.5F;
     private static final float FLIGHT_SPIN_SPEED = 34.0F;
-    private static final float BLOCK_BASE_DAMAGE = 0.35F;
-    private static final float MISC_BASE_DAMAGE = 0.6F;
     private static final String STACK_COUNT_KEY = "ThrownStackCount";
     private static final String HIT_BLOCK_KEY = "HitBlock";
     private static final String EMBEDDED_KEY = "Embedded";
@@ -241,6 +233,11 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
         return this.entityData.get(DATA_EMBEDDED_PITCH);
     }
 
+    /** Total number of component-identical items represented by this projectile. */
+    public int getThrownStackCount() {
+        return this.thrownStackCount;
+    }
+
     public float getSpinPhaseOffsetDegrees() {
         return (this.getId() * 57.0F) % 360.0F;
     }
@@ -301,21 +298,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     public boolean usesPointFirstFlight() {
-        return isPointFirstFlightWeapon(this.getItem());
-    }
-
-    private static boolean isPointFirstFlightWeapon(ItemStack stack) {
-        if (stack.isEmpty()) {
-            return false;
-        }
-
-        Item item = stack.getItem();
-        if (item instanceof TridentItem || item == Items.TRIDENT) {
-            return true;
-        }
-
-        String itemPath = BuiltInRegistries.ITEM.getKey(item).getPath();
-        return itemPath.contains("spear") || itemPath.contains("javelin");
+        return ThrowItemRules.isSpear(this.getItem());
     }
 
     private void recordTrailPoint() {
@@ -326,8 +309,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     private boolean canEmbedInBlock() {
-        ItemStack stack = this.getItem();
-        return stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES) || isPointFirstFlightWeapon(stack);
+        return ThrowItemRules.canEmbed(this.getItem());
     }
 
     private boolean shouldEmbedInBlock(Vec3 velocity, Vec3 normal) {
@@ -387,55 +369,76 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     private float getThrownDamage(ServerLevel serverLevel, ItemStack thrownStack, net.minecraft.world.entity.Entity target, DamageSource source) {
-        float itemDamage = getThrownBaseDamage(thrownStack);
+        SwordThrowServerConfig.ConfigData tuning = SwordThrowServerConfig.get();
+        boolean spear = ThrowItemRules.isSpear(thrownStack);
+        float itemDamage = getThrownBaseDamage(thrownStack, tuning, spear);
         float speed = (float)this.getDeltaMovement().length();
-        float velocityMultiplier = VELOCITY_DAMAGE_BASE + speed * VELOCITY_DAMAGE_FACTOR;
+        float velocityMultiplier = tuning.velocityDamageBase() + speed * tuning.velocityDamageFactor();
         float damage = itemDamage * velocityMultiplier;
 
         if (!this.hitBlock) {
-            damage *= CLEAN_FLIGHT_DAMAGE_BONUS;
+            damage *= tuning.cleanFlightDamageMultiplier();
         }
 
-        return EnchantmentHelper.modifyDamage(serverLevel, thrownStack, target, source, damage);
+        float enchantedDamage = EnchantmentHelper.modifyDamage(serverLevel, thrownStack, target, source, damage);
+        return enchantedDamage * (spear
+            ? tuning.spearDamageMultiplier()
+            : tuning.standardDamageMultiplier());
     }
 
-    private static float getThrownBaseDamage(ItemStack thrownStack) {
-        float attackDamage = getMainHandAttackDamage(thrownStack);
+    private static float getThrownBaseDamage(
+        ItemStack thrownStack,
+        SwordThrowServerConfig.ConfigData tuning,
+        boolean spear
+    ) {
+        float attackDamage = getMainHandAttackDamage(thrownStack, tuning.baseHandDamage());
 
-        if (isPointFirstFlightWeapon(thrownStack)) {
-            float swordBaseline = Math.max(attackDamage, 4.0F);
-            return Math.max(swordBaseline * SPEAR_DAMAGE_MULTIPLIER, swordBaseline + SPEAR_DAMAGE_FLAT_BONUS);
+        if (spear) {
+            float spearBaseline = Math.max(attackDamage, tuning.spearMinimumAttackDamage());
+            return Math.max(
+                spearBaseline * tuning.spearBaseDamageMultiplier(),
+                spearBaseline + tuning.spearFlatDamageBonus()
+            );
         }
 
         if (thrownStack.is(ItemTags.SWORDS)) {
-            return attackDamage;
+            return attackDamage * tuning.swordDamageMultiplier();
         }
 
         if (thrownStack.is(ItemTags.AXES)) {
-            return Math.max(3.5F, attackDamage * 0.75F);
+            return Math.max(tuning.axeMinimumDamage(), attackDamage * tuning.axeDamageMultiplier());
         }
 
         if (thrownStack.is(ItemTags.PICKAXES)) {
-            return Math.max(2.0F, attackDamage * 0.6F);
+            return Math.max(
+                tuning.pickaxeMinimumDamage(),
+                attackDamage * tuning.pickaxeDamageMultiplier()
+            );
         }
 
         if (thrownStack.is(ItemTags.SHOVELS) || thrownStack.is(ItemTags.HOES)) {
-            return Math.max(1.25F, attackDamage * 0.5F);
+            return Math.max(
+                tuning.shovelAndHoeMinimumDamage(),
+                attackDamage * tuning.shovelAndHoeDamageMultiplier()
+            );
         }
 
         if (thrownStack.getItem() instanceof BlockItem) {
-            return BLOCK_BASE_DAMAGE;
+            return tuning.blockItemBaseDamage();
         }
 
         if (thrownStack.isDamageableItem()) {
-            return Math.max(1.0F, attackDamage * 0.4F);
+            return Math.max(
+                tuning.damageableItemMinimumDamage(),
+                attackDamage * tuning.damageableItemDamageMultiplier()
+            );
         }
 
-        return MISC_BASE_DAMAGE;
+        return tuning.miscItemBaseDamage();
     }
 
-    private static float getMainHandAttackDamage(ItemStack thrownStack) {
-        final float[] additive = new float[] {BASE_HAND_DAMAGE};
+    private static float getMainHandAttackDamage(ItemStack thrownStack, float baseHandDamage) {
+        final float[] additive = new float[] {baseHandDamage};
         final float[] multipliedBase = new float[] {0.0F};
         final float[] multipliedTotal = new float[] {1.0F};
 
@@ -451,7 +454,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
             }
         });
 
-        return (additive[0] + BASE_HAND_DAMAGE * multipliedBase[0]) * multipliedTotal[0];
+        return (additive[0] + baseHandDamage * multipliedBase[0]) * multipliedTotal[0];
     }
 
     private void applyThrownHitEffects(ServerLevel serverLevel, ItemStack thrownStack, EntityHitResult hitResult, DamageSource source) {

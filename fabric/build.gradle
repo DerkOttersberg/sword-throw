@@ -1,10 +1,13 @@
 plugins { id 'dev.architectury.loom-no-remap' }
 base { archivesName = rootProject.archives_base_name }
 
+def fabricApiVersion = providers.gradleProperty('fabricApiVersion')
+    .getOrElse(libs.versions.fabric.api.get())
+
 dependencies {
     minecraft libs.minecraft
     implementation libs.fabric.loader
-    implementation libs.fabric.api
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabricApiVersion}"
     compileOnly libs.modmenu
     def seamlessApiFabric = files(rootProject.file("../seamless-api/fabric/build/libs/seamless-api-${libs.versions.seamless.api.get()}-fabric.jar"))
     seamlessApiFabric.builtBy gradle.includedBuild('seamless-api').task(':fabric:jar')
@@ -33,10 +36,26 @@ fabricApi {
 
 dependencies { gametestImplementation project(':common') }
 
-def metadataVersion = project.version.toString()
+sourceSets.gametest.java.srcDir rootProject.file('common/src/gametest/java')
+sourceSets.gametest.resources.srcDir rootProject.file('common/src/gametest/resources')
+
+tasks.named('runGameTest') {
+    doLast {
+        def logFile = layout.buildDirectory.file('run/gameTest/logs/latest.log').get().asFile
+        def match = logFile.exists() ? (logFile.text =~ /(\d+) tests are now running/) : null
+        if (match == null || !match.find() || match.group(1).toInteger() < 6) {
+            throw new GradleException('Fabric GameTest run did not discover all five Sword Throw scenarios')
+        }
+    }
+}
+
+def metadataProperties = [
+    version: project.version.toString(),
+    fabric_api_range: ">=${libs.versions.fabric.minimum.api.get()} <${libs.versions.fabric.maximum.api.exclusive.get()}"
+]
 processResources {
-    inputs.property 'version', metadataVersion
-    filesMatching('fabric.mod.json') { expand version: metadataVersion }
+    inputs.properties metadataProperties
+    filesMatching('fabric.mod.json') { expand metadataProperties }
 }
 
 tasks.named('jar', Jar) {

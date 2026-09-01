@@ -1,3 +1,9 @@
 {
-  "category.swordthrow.controls": "Sword Throw"
+  "category.swordthrow.controls": "Sword Throw",
+  "key.categories.swordthrow.controls": "Sword Throw",
+  "key.swordthrow.throw": "Charge / Throw Item",
+  "tag.item.swordthrow.throwable": "Explicitly Throwable Items",
+  "tag.item.swordthrow.cannot_throw": "Items That Cannot Be Thrown",
+  "tag.item.swordthrow.spears": "Spear-like Items",
+  "tag.item.swordthrow.embeddable": "Embeddable Thrown Items"
 }

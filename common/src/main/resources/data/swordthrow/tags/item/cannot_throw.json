@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "#swordthrow:gametest_cannot_throw",
+      "required": false
+    }
+  ]
+}

@@ -16,8 +16,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class PlayerModelMixin {
     @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;)V", at = @At("TAIL"))
     private void swordthrow$applyThirdPersonChargePose(AvatarRenderState state, CallbackInfo callback) {
-        if (!SwordThrowClientConfig.get().thirdPersonAnimationsEnabled()
-            || !SwordThrowClient.isChargingLocalPlayer(state.id)) {
+        if (!SwordThrowClientConfig.get().thirdPersonAnimationsEnabled()) {
+            return;
+        }
+
+        ThrowPoseState poseState = SwordThrowClient.poseStateFor(state.id);
+        if (poseState == null) {
             return;
         }
 
@@ -28,8 +32,8 @@ public abstract class PlayerModelMixin {
 
         PlayerModel model = (PlayerModel) (Object) this;
         HumanoidArm offArm = mainArm.getOpposite();
-        ThrowPoseState.applyThirdPersonMainHandPose(state.ageInTicks, mainArm, model.getArm(mainArm));
-        ThrowPoseState.applyThirdPersonOffHandPose(state.ageInTicks, offArm, model.getArm(offArm));
+        poseState.applyThirdPersonMainHandPose(state.ageInTicks, mainArm, model.getArm(mainArm));
+        poseState.applyThirdPersonOffHandPose(state.ageInTicks, offArm, model.getArm(offArm));
 
         swordthrow$copyPartTransform(model.rightSleeve, model.rightArm);
         swordthrow$copyPartTransform(model.leftSleeve, model.leftArm);

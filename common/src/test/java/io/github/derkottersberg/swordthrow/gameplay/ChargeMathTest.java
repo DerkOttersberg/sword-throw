@@ -29,4 +29,11 @@ class ChargeMathTest {
         assertTrue(ChargeMath.isSessionFresh(ChargeMath.MAX_SESSION_AGE_TICKS));
         assertFalse(ChargeMath.isSessionFresh(ChargeMath.MAX_SESSION_AGE_TICKS + 1L));
     }
+
+    @Test
+    void exposesTheSameBoundedChargeForPoseSynchronization() {
+        assertEquals(0, ChargeMath.clampCharge(-1));
+        assertEquals(14, ChargeMath.clampCharge(14));
+        assertEquals(ChargeMath.MAX_CHARGE_TICKS, ChargeMath.clampCharge(999));
+    }
 }

@@ -16,6 +16,16 @@ jobs:
         with:
           path: suite/sword-throw
       - uses: gradle/actions/wrapper-validation@v4
+      - name: Upload wrapper-validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sword-throw-wrapper-validation-reports
+          if-no-files-found: ignore
+          path: |
+            suite/**/build/reports/**
+            suite/**/build/test-results/**
+            suite/**/build/**/logs/**
 
   loader-builds:
     strategy:
@@ -33,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: DerkOttersberg/seamless-api
-          ref: 694bea2a03083727843d8d4b6005dd173100bf8e
+          ref: 3e949e4688d7a4bb87b0e4c942b77fd9ef658077
           path: suite/seamless-api
       - uses: actions/setup-java@v4
         with:
@@ -41,6 +51,53 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :common:check :${{ matrix.loader }}:check :${{ matrix.loader }}:build
+      - name: Upload ${{ matrix.loader }} diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sword-throw-${{ matrix.loader }}-reports
+          if-no-files-found: ignore
+          path: |
+            suite/**/build/reports/**
+            suite/**/build/test-results/**
+            suite/**/build/**/logs/**
+            suite/**/run/logs/**
+
+  fabric-api-compatibility:
+    strategy:
+      fail-fast: false
+      matrix:
+        fabric_api_version: ['0.158.0+26.2', '0.159.0+26.2']
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: suite/sword-throw
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: suite/sword-throw
+      - uses: actions/checkout@v4
+        with:
+          repository: DerkOttersberg/seamless-api
+          ref: 3e949e4688d7a4bb87b0e4c942b77fd9ef658077
+          path: suite/seamless-api
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew "-PfabricApiVersion=${{ matrix.fabric_api_version }}" :common:check :fabric:check :fabric:build
+      - name: Upload Fabric API ${{ matrix.fabric_api_version }} diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sword-throw-fabric-api-${{ matrix.fabric_api_version }}-reports
+          if-no-files-found: ignore
+          path: |
+            suite/**/build/reports/**
+            suite/**/build/test-results/**
+            suite/**/build/**/logs/**
+            suite/**/run/logs/**
 
   verification:
     runs-on: ubuntu-24.04
@@ -54,7 +111,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: DerkOttersberg/seamless-api
-          ref: 694bea2a03083727843d8d4b6005dd173100bf8e
+          ref: 3e949e4688d7a4bb87b0e4c942b77fd9ef658077
           path: suite/seamless-api
       - uses: actions/setup-java@v4
         with:
@@ -62,3 +119,14 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew clean check build
+      - name: Upload verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sword-throw-verification-reports
+          if-no-files-found: ignore
+          path: |
+            suite/**/build/reports/**
+            suite/**/build/test-results/**
+            suite/**/build/**/logs/**
+            suite/**/run/logs/**

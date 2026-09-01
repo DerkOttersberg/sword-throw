@@ -5,18 +5,28 @@ import io.github.derkottersberg.swordthrow.client.config.SwordThrowClientConfig;
 import io.github.derkottersberg.swordthrow.gameplay.ChargeMath;
 import io.github.derkottersberg.swordthrow.internal.ClientPlatformServices;
 import io.github.derkottersberg.swordthrow.network.ThrowActionPayload;
+import io.github.derkottersberg.swordthrow.network.ThrowStatePayload;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 public final class SwordThrowClient {
     private static final int CHARGE_BAR_WIDTH = 24;
     private static final int CHARGE_BAR_HEIGHT = 3;
+    private static final ThrowPoseState LOCAL_POSE = new ThrowPoseState();
+    private static final RemoteThrowPoseTracker REMOTE_POSES = new RemoteThrowPoseTracker();
 
     private static ClientPlatformServices services;
+    private static Level currentLevel;
+    private static long clientTicks;
     private static boolean charging;
     private static int chargeTicks;
     private static boolean allowNextSingleItemDrop;
+    private static boolean serverRejectedUntilKeyRelease;
     private static ItemStack chargingStack = ItemStack.EMPTY;
 
     private SwordThrowClient() {
@@ -32,33 +42,46 @@ public final class SwordThrowClient {
     }
 
     public static void tick(Minecraft client) {
-        ThrowPoseState.tick();
+        clientTicks++;
+        migrateDropKeyBinding(client);
+        if (client.level != currentLevel) {
+            currentLevel = client.level;
+            resetAllClientState();
+        }
+
+        LOCAL_POSE.tick();
+        tickRemotePoses(client);
 
         if (client.player == null || client.level == null || !client.player.isAlive() || client.player.isSpectator()) {
-            resetClientState();
+            resetLocalInputState();
             return;
         }
 
+        KeyMapping throwKey = requireServices().throwKeyMapping();
         ItemStack heldStack = client.player.getMainHandItem();
-        boolean keyDown = client.options.keyDrop.isDown() && client.gui.screen() == null;
+        boolean keyDown = throwKey.isDown() && client.gui.screen() == null;
         boolean canThrowHeldItem = SwordThrow.canThrow(heldStack)
             && !client.player.getCooldowns().isOnCooldown(heldStack);
+
+        if (!keyDown) {
+            serverRejectedUntilKeyRelease = false;
+        }
 
         if (charging && !sameChargingStack(heldStack)) {
             cancelCharge(true);
         }
 
-        if (keyDown && canThrowHeldItem) {
+        if (keyDown && canThrowHeldItem && !serverRejectedUntilKeyRelease) {
             if (!charging) {
                 charging = true;
                 chargeTicks = 0;
                 chargingStack = heldStack.copy();
-                ThrowPoseState.beginCharge();
+                LOCAL_POSE.beginCharge();
                 requireServices().sendToServer(ThrowActionPayload.start());
             }
 
             chargeTicks = Math.min(chargeTicks + 1, ChargeMath.MAX_CHARGE_TICKS);
-            ThrowPoseState.setChargeProgress(chargeTicks / (float) ChargeMath.MAX_CHARGE_TICKS);
+            LOCAL_POSE.setChargeProgress(ChargeMath.progress(chargeTicks));
             return;
         }
 
@@ -72,19 +95,29 @@ public final class SwordThrowClient {
         }
 
         if (chargeTicks >= ChargeMath.MIN_CHARGE_TICKS) {
-            ThrowPoseState.releaseForward();
+            LOCAL_POSE.releaseForward(ChargeMath.progress(chargeTicks));
             requireServices().sendToServer(ThrowActionPayload.release(chargeTicks));
             clearChargeFields();
         } else {
             requireServices().sendToServer(ThrowActionPayload.cancel());
-            ThrowPoseState.cancel();
+            LOCAL_POSE.cancel();
             clearChargeFields();
             allowNormalSingleItemDrop(client);
         }
     }
 
+    public static void handleThrowState(ThrowStatePayload payload) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null && client.player.getId() == payload.playerEntityId()) {
+            handleLocalThrowState(payload);
+            return;
+        }
+
+        REMOTE_POSES.apply(payload, clientTicks);
+    }
+
     public static void renderChargeBar(GuiGraphicsExtractor graphics) {
-        if (!ThrowPoseState.isChargeIndicatorVisible()) {
+        if (!LOCAL_POSE.isChargeIndicatorVisible()) {
             return;
         }
 
@@ -93,7 +126,7 @@ public final class SwordThrowClient {
         int right = left + CHARGE_BAR_WIDTH;
         int bottom = top + CHARGE_BAR_HEIGHT;
 
-        float progress = ThrowPoseState.getChargeIndicatorProgress(1.0F);
+        float progress = LOCAL_POSE.getChargeIndicatorProgress(1.0F);
         int fillWidth = Math.max(1, Math.round((CHARGE_BAR_WIDTH - 2) * progress));
         int fillColor = progress >= 0.5F ? 0xFFDDD37A : 0xFFC96A6A;
 
@@ -103,12 +136,17 @@ public final class SwordThrowClient {
     }
 
     public static boolean shouldInterceptDropKey(Minecraft client) {
-        return client != null
-            && client.gui.screen() == null
-            && client.player != null
-            && client.player.isAlive()
+        if (client == null || services == null || client.player == null || client.gui.screen() != null) {
+            return false;
+        }
+        KeyMapping throwKey = services.throwKeyMapping();
+        ItemStack held = client.player.getMainHandItem();
+        return client.player.isAlive()
             && !client.player.isSpectator()
-            && SwordThrow.canThrow(client.player.getMainHandItem());
+            && throwKey.same(client.options.keyDrop)
+            && throwKey.isDown()
+            && SwordThrow.canThrow(held)
+            && !client.player.getCooldowns().isOnCooldown(held);
     }
 
     public static boolean consumeSingleItemDropBypass() {
@@ -119,11 +157,48 @@ public final class SwordThrowClient {
         return true;
     }
 
-    public static boolean isChargingLocalPlayer(int entityId) {
+    public static ThrowPoseState poseStateFor(int entityId) {
         Minecraft client = Minecraft.getInstance();
-        return client.player != null
-            && client.player.getId() == entityId
-            && (charging || ThrowPoseState.isOffHandVisible());
+        if (client.player != null && client.player.getId() == entityId) {
+            return charging || !LOCAL_POSE.isIdle() ? LOCAL_POSE : null;
+        }
+        return REMOTE_POSES.poseFor(entityId);
+    }
+
+    public static ThrowPoseState localPoseState() {
+        return LOCAL_POSE;
+    }
+
+    static int remotePoseCount() {
+        return REMOTE_POSES.size();
+    }
+
+    private static void handleLocalThrowState(ThrowStatePayload payload) {
+        switch (payload.phase()) {
+            case CHARGING -> {
+                if (!charging && LOCAL_POSE.isIdle()) {
+                    LOCAL_POSE.beginCharge();
+                }
+                LOCAL_POSE.setChargeProgress(ChargeMath.progress(payload.chargeTicks()));
+            }
+            case RELEASE -> {
+                LOCAL_POSE.releaseForward(ChargeMath.progress(payload.chargeTicks()));
+                clearChargeFields();
+                serverRejectedUntilKeyRelease = false;
+            }
+            case CANCEL -> {
+                LOCAL_POSE.cancel();
+                serverRejectedUntilKeyRelease = charging
+                    && services != null
+                    && services.throwKeyMapping().isDown();
+                clearChargeFields();
+            }
+        }
+    }
+
+    private static void tickRemotePoses(Minecraft client) {
+        REMOTE_POSES.tick(clientTicks, entityId ->
+            client.level != null && client.level.getEntity(entityId) instanceof Player);
     }
 
     private static boolean sameChargingStack(ItemStack heldStack) {
@@ -143,7 +218,7 @@ public final class SwordThrowClient {
         if (tellServer && services != null) {
             services.sendToServer(ThrowActionPayload.cancel());
         }
-        ThrowPoseState.cancel();
+        LOCAL_POSE.cancel();
         clearChargeFields();
     }
 
@@ -153,10 +228,27 @@ public final class SwordThrowClient {
         chargingStack = ItemStack.EMPTY;
     }
 
-    private static void resetClientState() {
+    private static void resetLocalInputState() {
         clearChargeFields();
         allowNextSingleItemDrop = false;
-        ThrowPoseState.cancel();
+        serverRejectedUntilKeyRelease = false;
+        LOCAL_POSE.cancel();
+    }
+
+    private static void resetAllClientState() {
+        resetLocalInputState();
+        REMOTE_POSES.clear();
+    }
+
+    private static void migrateDropKeyBinding(Minecraft client) {
+        if (!SwordThrowClientConfig.consumeDropKeyMigration()) {
+            return;
+        }
+        KeyMapping throwKey = requireServices().throwKeyMapping();
+        throwKey.setKey(InputConstants.getKey(client.options.keyDrop.saveString()));
+        KeyMapping.resetMapping();
+        client.options.save();
+        SwordThrow.LOGGER.info("Migrated the Sword Throw key to the existing Drop Item binding");
     }
 
     private static ClientPlatformServices requireServices() {
@@ -165,4 +257,5 @@ public final class SwordThrowClient {
         }
         return services;
     }
+
 }

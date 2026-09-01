@@ -2,6 +2,9 @@ package io.github.derkottersberg.swordthrow.client.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import io.github.derkottersberg.swordthrow.SwordThrow;
 import java.io.IOException;
 import java.io.Reader;
@@ -10,8 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class SwordThrowClientConfig {
+    public static final int CURRENT_SCHEMA_VERSION = 2;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Path configPath;
+    private static boolean dropKeyMigrationPending;
 
     private static final TrailColorOption[] TRAIL_COLOR_OPTIONS = new TrailColorOption[] {
         new TrailColorOption("Amber", 0xD4A63A),
@@ -36,12 +41,17 @@ public final class SwordThrowClientConfig {
     public static void load() {
         Path path = requireConfigPath();
         if (!Files.exists(path)) {
+            dropKeyMigrationPending = false;
             save();
             return;
         }
 
         try (Reader reader = Files.newBufferedReader(path)) {
-            ConfigData loaded = GSON.fromJson(reader, ConfigData.class);
+            JsonElement root = JsonParser.parseReader(reader);
+            JsonObject object = root != null && root.isJsonObject() ? root.getAsJsonObject() : null;
+            dropKeyMigrationPending = object != null
+                && (!object.has("schemaVersion") || object.get("schemaVersion").getAsInt() < CURRENT_SCHEMA_VERSION);
+            ConfigData loaded = GSON.fromJson(root, ConfigData.class);
             if (loaded != null) {
                 data = loaded;
             }
@@ -93,6 +103,16 @@ public final class SwordThrowClientConfig {
         return TRAIL_COLOR_OPTIONS[nextIndex].rgb();
     }
 
+    public static boolean consumeDropKeyMigration() {
+        if (!dropKeyMigrationPending) {
+            return false;
+        }
+        dropKeyMigrationPending = false;
+        data.schemaVersion = CURRENT_SCHEMA_VERSION;
+        save();
+        return true;
+    }
+
     public static String colorLabel(int rgb) {
         for (TrailColorOption option : TRAIL_COLOR_OPTIONS) {
             if (option.rgb() == rgb) {
@@ -106,6 +126,7 @@ public final class SwordThrowClientConfig {
         if (data == null) {
             data = new ConfigData();
         }
+        data.schemaVersion = CURRENT_SCHEMA_VERSION;
 
         boolean colorFound = false;
         for (TrailColorOption option : TRAIL_COLOR_OPTIONS) {
@@ -131,6 +152,7 @@ public final class SwordThrowClientConfig {
     }
 
     public static final class ConfigData {
+        private int schemaVersion = CURRENT_SCHEMA_VERSION;
         private boolean thirdPersonAnimationsEnabled = true;
         private boolean trailEffectEnabled = true;
         private int trailColor = 0xD4A63A;
@@ -139,6 +161,7 @@ public final class SwordThrowClientConfig {
         }
 
         public ConfigData(boolean thirdPersonAnimationsEnabled, boolean trailEffectEnabled, int trailColor) {
+            this.schemaVersion = CURRENT_SCHEMA_VERSION;
             this.thirdPersonAnimationsEnabled = thirdPersonAnimationsEnabled;
             this.trailEffectEnabled = trailEffectEnabled;
             this.trailColor = trailColor;
@@ -146,6 +169,10 @@ public final class SwordThrowClientConfig {
 
         public boolean thirdPersonAnimationsEnabled() {
             return thirdPersonAnimationsEnabled;
+        }
+
+        public int schemaVersion() {
+            return schemaVersion;
         }
 
         public boolean trailEffectEnabled() {

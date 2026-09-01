@@ -3,6 +3,8 @@ base { archivesName = rootProject.archives_base_name }
 
 sourceSets.main {
     java.srcDir rootProject.file('common/src/main/java')
+    java.srcDir 'src/gametest/java'
+    java.srcDir rootProject.file('common/src/gametest/java')
     resources.srcDir rootProject.file('common/src/main/resources')
 }
 
@@ -14,7 +16,39 @@ dependencies {
     implementation seamlessApiNeoForge
 }
 
-loom { mods { swordthrow { sourceSet sourceSets.main } } }
+loom {
+    mods {
+        swordthrow {
+            sourceSet sourceSets.main
+        }
+    }
+    runs {
+        gameTestServer {
+            runtimeEnvironment = 'gametestserver'
+            forgeTemplate 'gameTestServer'
+            source sourceSets.main
+            runDir 'build/gametest'
+            property 'neoforge.enabledGameTestNamespaces', 'swordthrow'
+        }
+    }
+}
+
+tasks.named('runGameTestServer') {
+    doFirst {
+        project.copy {
+            from rootProject.file('common/src/gametest/resources')
+            into layout.buildDirectory.dir('resources/main')
+        }
+    }
+    doLast {
+        def logFile = layout.buildDirectory.file('gametest/logs/latest.log').get().asFile
+        def match = logFile.exists() ? (logFile.text =~ /(\d+) tests are now running/) : null
+        if (match == null || !match.find() || match.group(1).toInteger() < 6) {
+            throw new GradleException('NeoForge GameTest run did not discover all five Sword Throw scenarios')
+        }
+    }
+}
+tasks.named('check') { dependsOn tasks.named('runGameTestServer') }
 
 def metadataProperties = [
     mod_version: project.version.toString(),
@@ -29,10 +63,15 @@ processResources {
 
 tasks.named('jar', Jar) {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude '**/gametest/**'
+    exclude '**/SwordThrowGameTestConfigAccess.class'
+    exclude 'data/swordthrow/tags/item/gametest_throwable.json'
+    exclude 'data/swordthrow/tags/item/gametest_cannot_throw.json'
     archiveFileName = "${rootProject.archives_base_name}-${project.version}-neoforge.jar"
 }
 tasks.named('sourcesJar', Jar) {
     from project(':common').sourceSets.main.allSource
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude '**/gametest/**'
     archiveFileName = "${rootProject.archives_base_name}-${project.version}-neoforge-sources.jar"
 }

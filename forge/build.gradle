@@ -6,6 +6,20 @@ sourceSets.main {
     resources.srcDir rootProject.file('common/src/main/resources')
 }
 
+sourceSets {
+    gametest {
+        java.srcDirs = ['src/gametest/java', rootProject.file('common/src/gametest/java')]
+        resources.srcDirs = ['src/gametest/resources', rootProject.file('common/src/gametest/resources')]
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath
+    }
+}
+
+configurations {
+    gametestImplementation.extendsFrom implementation
+    gametestRuntimeOnly.extendsFrom runtimeOnly
+}
+
 configurations.forgeRuntimeLibrary {
     exclude group: 'dev.architectury', module: 'architectury-naming-service'
     exclude group: 'dev.architectury', module: 'architectury-mixin-remapper-service'
@@ -19,7 +33,42 @@ dependencies {
     implementation seamlessApiForge
 }
 
-loom { mods { swordthrow { sourceSet sourceSets.main } } }
+loom {
+    mods {
+        swordthrow {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.gametest
+        }
+    }
+    runs {
+        gameTestServer {
+            runtimeEnvironment = 'gametestserver'
+            forgeTemplate 'gameTestServer'
+            source sourceSets.gametest
+            runDir 'build/gametest'
+            // Forge 65's template omits the mapping properties required by Loom's
+            // development services. Production code already uses official names, so
+            // an explicit identity mapping is sufficient.
+            def identityMappings = rootProject.file('gradle/official-named-empty.tiny').absolutePath
+            property 'architectury.naming.mappingsPath', identityMappings
+            property 'architectury.naming.sourceNamespace', 'official'
+            property 'architectury.mixinRemapper.mappingsPath', identityMappings
+            property 'architectury.mixinRemapper.sourceNamespace', 'official'
+            property 'forge.enabledGameTestNamespaces', 'swordthrow'
+        }
+    }
+}
+
+tasks.named('runGameTestServer') {
+    doLast {
+        def logFile = layout.buildDirectory.file('gametest/logs/latest.log').get().asFile
+        def match = logFile.exists() ? (logFile.text =~ /(\d+) tests are now running/) : null
+        if (match == null || !match.find() || match.group(1).toInteger() < 6) {
+            throw new GradleException('Forge GameTest run did not discover all five Sword Throw scenarios')
+        }
+    }
+}
+tasks.named('check') { dependsOn tasks.named('runGameTestServer') }
 
 def metadataProperties = [
     mod_version: project.version.toString(),

@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:function",
+  "environment": "minecraft:default",
+  "function": "swordthrow:authoritative_throw",
+  "max_ticks": 40,
+  "structure": "forge:empty3x3x3"
+}

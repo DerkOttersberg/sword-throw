@@ -22,6 +22,9 @@ versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 
+[features.swordthrow]
+javaVersion="[25,)"
+
 [[dependencies.swordthrow]]
 modId="minecraft"
 mandatory=true

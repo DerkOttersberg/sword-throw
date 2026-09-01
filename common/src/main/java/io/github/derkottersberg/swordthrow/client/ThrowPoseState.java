@@ -13,40 +13,47 @@ public final class ThrowPoseState {
     private static final float MAIN_HAND_BASE_LIFT = 0.06F;
     private static final float OFF_HAND_BASE_LIFT = 0.43F;
 
-    private static final FloatDriver chargeDriver = new FloatDriver();
+    private final FloatDriver chargeDriver = new FloatDriver();
 
-    private static float chargeTarget;
-    private static float releaseStartCharge;
-    private static int releaseTicksRemaining;
+    private float chargeTarget;
+    private float releaseStartCharge;
+    private int releaseTicksRemaining;
 
-    private ThrowPoseState() {
+    public ThrowPoseState() {
     }
 
-    public static void beginCharge() {
+    public void beginCharge() {
         chargeTarget = 0.0F;
         releaseStartCharge = 0.0F;
         chargeDriver.reset(0.0F);
         releaseTicksRemaining = 0;
     }
 
-    public static void setChargeProgress(float progress) {
+    public void setChargeProgress(float progress) {
         chargeTarget = Mth.clamp(progress, 0.0F, 1.0F);
     }
 
-    public static void releaseForward() {
-        releaseStartCharge = getChargeProgress(1.0F);
+    public void releaseForward() {
+        releaseForward(getChargeProgress(1.0F));
+    }
+
+    public void releaseForward(float authoritativeProgress) {
+        releaseStartCharge = Math.max(
+            Mth.clamp(authoritativeProgress, 0.0F, 1.0F),
+            getChargeProgress(1.0F)
+        );
         chargeTarget = 0.0F;
         releaseTicksRemaining = RELEASE_TICKS;
     }
 
-    public static void cancel() {
+    public void cancel() {
         chargeTarget = 0.0F;
         releaseStartCharge = 0.0F;
         chargeDriver.reset(0.0F);
         releaseTicksRemaining = 0;
     }
 
-    public static void tick() {
+    public void tick() {
         chargeDriver.tick(chargeTarget, CHARGE_RESPONSE);
 
         if (releaseTicksRemaining > 0) {
@@ -60,19 +67,19 @@ public final class ThrowPoseState {
         }
     }
 
-    public static boolean isOffHandVisible() {
+    public boolean isOffHandVisible() {
         return getSupportPresence(getChargeProgress(1.0F)) > 0.001F || releaseTicksRemaining > 0;
     }
 
-    public static boolean isChargeIndicatorVisible() {
+    public boolean isChargeIndicatorVisible() {
         return chargeTarget > 0.001F && releaseTicksRemaining == 0;
     }
 
-    public static float getChargeIndicatorProgress(float tickDelta) {
+    public float getChargeIndicatorProgress(float tickDelta) {
         return Mth.clamp(getChargeProgress(tickDelta), 0.0F, 1.0F);
     }
 
-    public static void applyMainHandPose(AbstractClientPlayer player, PoseStack poseStack, float tickDelta) {
+    public void applyMainHandPose(AbstractClientPlayer player, PoseStack poseStack, float tickDelta) {
         PoseSample pose = sample(player, player.getMainArm(), tickDelta);
         if (!pose.visible()) {
             return;
@@ -88,7 +95,7 @@ public final class ThrowPoseState {
         poseStack.mulPose(Axis.ZP.rotationDegrees(-pose.side() * 12.0F * pose.windUp() + pose.side() * 9.0F * pose.release() + pose.side() * 4.0F * pose.mainSwayRoll()));
     }
 
-    public static void applyOffHandAimContext(AbstractClientPlayer player, PoseStack poseStack, HumanoidArm offArm, float tickDelta) {
+    public void applyOffHandAimContext(AbstractClientPlayer player, PoseStack poseStack, HumanoidArm offArm, float tickDelta) {
         PoseSample pose = sample(player, offArm.getOpposite(), tickDelta);
         if (!pose.visible()) {
             return;
@@ -109,7 +116,7 @@ public final class ThrowPoseState {
         poseStack.mulPose(Axis.ZP.rotationDegrees(pose.offHandSide() * (-14.0F * hidden - 14.0F * extend + 2.5F * pose.offSwayRoll())));
     }
 
-    public static void applyThirdPersonOffHandPose(float age, HumanoidArm offArmSide, ModelPart offArm) {
+    public void applyThirdPersonOffHandPose(float age, HumanoidArm offArmSide, ModelPart offArm) {
         if (offArmSide == null) {
             return;
         }
@@ -131,7 +138,7 @@ public final class ThrowPoseState {
         offArm.zRot += armRoll;
     }
 
-    public static void applyThirdPersonMainHandPose(float age, HumanoidArm mainArmSide, ModelPart mainArm) {
+    public void applyThirdPersonMainHandPose(float age, HumanoidArm mainArmSide, ModelPart mainArm) {
         if (mainArmSide == null) {
             return;
         }
@@ -151,11 +158,17 @@ public final class ThrowPoseState {
         mainArm.zRot += armRoll;
     }
 
-    private static float getChargeProgress(float tickDelta) {
+    public boolean isIdle() {
+        return chargeTarget <= 0.001F
+            && releaseTicksRemaining <= 0
+            && getChargeProgress(1.0F) <= 0.001F;
+    }
+
+    private float getChargeProgress(float tickDelta) {
         return chargeDriver.get(tickDelta);
     }
 
-    private static float getReleaseProgress(float tickDelta) {
+    private float getReleaseProgress(float tickDelta) {
         if (releaseTicksRemaining <= 0) {
             return 0.0F;
         }
@@ -168,11 +181,11 @@ public final class ThrowPoseState {
         return value * value * (3.0F - 2.0F * value);
     }
 
-    private static PoseSample sample(AbstractClientPlayer player, HumanoidArm mainArm, float tickDelta) {
+    private PoseSample sample(AbstractClientPlayer player, HumanoidArm mainArm, float tickDelta) {
         return sample(player.tickCount + tickDelta, mainArm, tickDelta);
     }
 
-    private static PoseSample sample(float age, HumanoidArm mainArm, float tickDelta) {
+    private PoseSample sample(float age, HumanoidArm mainArm, float tickDelta) {
         float charge = ease(getChargeProgress(tickDelta));
         float release = getReleaseProgress(tickDelta);
         float releaseStrength = ease(Math.max(releaseStartCharge, charge));

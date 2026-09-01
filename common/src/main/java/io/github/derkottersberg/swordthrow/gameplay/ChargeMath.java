@@ -10,8 +10,8 @@ public final class ChargeMath {
     }
 
     public static int effectiveCharge(long serverElapsedTicks, int claimedClientTicks) {
-        int elapsed = clampToCharge(serverElapsedTicks);
-        int claimed = clampToCharge(claimedClientTicks);
+        int elapsed = clampCharge(serverElapsedTicks);
+        int claimed = clampCharge(claimedClientTicks);
         return Math.min(elapsed, claimed);
     }
 
@@ -20,7 +20,7 @@ public final class ChargeMath {
     }
 
     public static float progress(int chargeTicks) {
-        return clampToCharge(chargeTicks) / (float) MAX_CHARGE_TICKS;
+        return clampCharge(chargeTicks) / (float) MAX_CHARGE_TICKS;
     }
 
     public static float speed(int chargeTicks) {
@@ -31,7 +31,7 @@ public final class ChargeMath {
         return 10 + Math.round(progress(chargeTicks) * 8.0F);
     }
 
-    private static int clampToCharge(long ticks) {
+    public static int clampCharge(long ticks) {
         return (int) Math.max(0L, Math.min(ticks, MAX_CHARGE_TICKS));
     }
 }
