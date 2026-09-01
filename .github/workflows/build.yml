@@ -61,7 +61,9 @@ jobs:
             suite/**/build/reports/**
             suite/**/build/test-results/**
             suite/**/build/**/logs/**
+            suite/**/build/**/crash-reports/**
             suite/**/run/logs/**
+            suite/**/run/**/crash-reports/**
 
   fabric-api-compatibility:
     strategy:
@@ -97,7 +99,9 @@ jobs:
             suite/**/build/reports/**
             suite/**/build/test-results/**
             suite/**/build/**/logs/**
+            suite/**/build/**/crash-reports/**
             suite/**/run/logs/**
+            suite/**/run/**/crash-reports/**
 
   verification:
     runs-on: ubuntu-24.04
@@ -129,4 +133,6 @@ jobs:
             suite/**/build/reports/**
             suite/**/build/test-results/**
             suite/**/build/**/logs/**
+            suite/**/build/**/crash-reports/**
             suite/**/run/logs/**
+            suite/**/run/**/crash-reports/**
