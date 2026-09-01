@@ -104,11 +104,23 @@ jobs:
             suite/**/run/**/crash-reports/**
 
   verification:
+    needs: [wrapper-validation, loader-builds, fabric-api-compatibility]
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: suite/sword-throw
     steps:
+      - name: Require successful protected prerequisite jobs
+        env:
+          WRAPPER_VALIDATION_RESULT: ${{ needs.wrapper-validation.result }}
+          LOADER_BUILDS_RESULT: ${{ needs.loader-builds.result }}
+          FABRIC_API_COMPATIBILITY_RESULT: ${{ needs.fabric-api-compatibility.result }}
+        run: |
+          if [[ "$WRAPPER_VALIDATION_RESULT" != "success" || "$LOADER_BUILDS_RESULT" != "success" || "$FABRIC_API_COMPATIBILITY_RESULT" != "success" ]]; then
+            echo "Required jobs failed: wrapper-validation=$WRAPPER_VALIDATION_RESULT loader-builds=$LOADER_BUILDS_RESULT fabric-api-compatibility=$FABRIC_API_COMPATIBILITY_RESULT"
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           path: suite/sword-throw
