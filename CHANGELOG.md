@@ -4,7 +4,7 @@
 
 - Added server-authoritative charge, release, and cancellation pose synchronization for the thrower and remote players, with immediate late-tracker snapshots, heartbeats, and lifecycle cleanup.
 - Replaced global client pose state with independent per-player timelines and added two-player release/cancel, timeout, and unloaded-entity tests.
-- Added `throwable`, `cannot_throw`, `spears`, and `embeddable` item tags. Explicit denial wins, broad untagged-item compatibility remains, and spear-name heuristics were removed.
+- Added `throwable`, `cannot_throw`, `spears`, and `embeddable` item tags. Explicit denial wins, broad untagged-item compatibility remains, spear-name heuristics were removed, and the default spear set inherits Minecraft 26.2's native spears while retaining trident compatibility.
 - Added a validated, atomically written server damage configuration covering the full existing damage formula while preserving all default values.
 - Preserved the existing Drop Item behavior while adding a separately configurable Throw Item binding and one-time binding migration.
 - Added six live Fabric, Forge, and NeoForge GameTest scenarios for authoritative timing, changed-stack and missing/stale-session rejection, duplicate-start/late-tracker behavior, configured impact damage, tag precedence, embedding/bounce/pickup, and component/enchantment/NBT conservation.

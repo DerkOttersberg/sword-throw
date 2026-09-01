@@ -30,6 +30,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -240,6 +241,15 @@ public final class SwordThrowGameTestScenario {
     }
 
     public static void validatesConfiguredImpactDamageAndTagPrecedence(GameTestHelper helper) {
+        ItemStack nativeSpear = new ItemStack(Items.DIAMOND_SPEAR);
+        helper.assertTrue(nativeSpear.is(ItemTags.SPEARS), "The vanilla 26.2 spear tag is missing diamond spears");
+        helper.assertTrue(
+            nativeSpear.is(SwordThrowItemTags.SPEARS) && ThrowItemRules.isSpear(nativeSpear),
+            "swordthrow:spears did not inherit the native Minecraft spear tag"
+        );
+        helper.assertTrue(SwordThrow.canThrow(nativeSpear), "A native 26.2 spear is not throwable");
+        helper.assertTrue(ThrowItemRules.canEmbed(nativeSpear), "A native 26.2 spear is not embeddable");
+
         ItemStack explicitlyAllowedTrident = new ItemStack(Items.TRIDENT);
         helper.assertTrue(
             explicitlyAllowedTrident.is(SwordThrowItemTags.THROWABLE),
@@ -273,9 +283,10 @@ public final class SwordThrowGameTestScenario {
         LivingEntity target = helper.spawnWithNoFreeWill(EntityTypes.PIG, new BlockPos(2, 2, 1));
         ItemStack thrownStack = new ItemStack(Items.FEATHER);
         float configuredStandardMultiplier = 4.0F;
+        float configuredSpearMultiplier = 0.25F;
         float impactSpeed = 2.0F;
         SwordThrowGameTestConfigAccess.replace(
-            new SwordThrowServerConfig.ConfigData(configuredStandardMultiplier, 1.0F)
+            new SwordThrowServerConfig.ConfigData(configuredStandardMultiplier, configuredSpearMultiplier)
         );
         try {
             TestThrownSwordEntity projectile = new TestThrownSwordEntity(
@@ -297,6 +308,34 @@ public final class SwordThrowGameTestScenario {
             helper.assertTrue(
                 Math.abs(actualDamage - expectedDamage) < 0.01F,
                 "Configured impact damage was " + actualDamage + "; expected " + expectedDamage
+            );
+            projectile.discard();
+            target.discard();
+
+            LivingEntity spearTarget = helper.spawnWithNoFreeWill(EntityTypes.PIG, new BlockPos(2, 2, 1));
+            TestThrownSwordEntity spearProjectile = new TestThrownSwordEntity(
+                helper.getLevel(),
+                owner,
+                nativeSpear
+            );
+            spearProjectile.setPos(owner.position());
+            spearProjectile.setDeltaMovement(new Vec3(impactSpeed, 0.0D, 0.0D));
+            helper.assertTrue(
+                helper.getLevel().addFreshEntity(spearProjectile),
+                "Could not add the native spear impact test projectile"
+            );
+
+            float spearHealthBefore = spearTarget.getHealth();
+            spearProjectile.hitTarget(spearTarget);
+            float actualSpearDamage = spearHealthBefore - spearTarget.getHealth();
+            float spearBaseline = 4.0F;
+            float expectedSpearDamage = Math.max(spearBaseline * 1.45F, spearBaseline + 2.5F)
+                * (0.65F + impactSpeed * 0.7F)
+                * 1.35F
+                * configuredSpearMultiplier;
+            helper.assertTrue(
+                Math.abs(actualSpearDamage - expectedSpearDamage) < 0.01F,
+                "Native spear impact damage was " + actualSpearDamage + "; expected " + expectedSpearDamage
             );
         } finally {
             SwordThrowGameTestConfigAccess.reset();

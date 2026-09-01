@@ -22,7 +22,7 @@ Four item tags provide stable compatibility hooks:
 
 - `swordthrow:throwable` explicitly opts an item in, including a vanilla trident.
 - `swordthrow:cannot_throw` opts an item out and always wins over `throwable`.
-- `swordthrow:spears` selects point-first rendering and spear damage; the default contains `minecraft:trident`.
+- `swordthrow:spears` selects point-first rendering and spear damage; the default inherits Minecraft 26.2's `minecraft:spears` tag and retains `minecraft:trident` as a compatibility fallback.
 - `swordthrow:embeddable` selects block embedding independently of damage classification; the default contains Minecraft swords, axes, and `swordthrow:spears`.
 
 Ordinary untagged items remain throwable for backward compatibility. Spear classification is tag-only; registry-name guesses such as `spear` or `javelin` are intentionally not used.
