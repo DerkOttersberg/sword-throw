@@ -193,7 +193,7 @@ public final class SwordThrow {
         }
 
         int chargeTicks = ChargeMath.effectiveCharge(elapsedTicks, clientChargeTicks);
-        if (chargeTicks < ChargeMath.MIN_CHARGE_TICKS) {
+        if (!ChargeMath.canRelease(chargeTicks)) {
             broadcastPoseState(player, ThrowStatePayload.cancel(player.getId()));
             return;
         }

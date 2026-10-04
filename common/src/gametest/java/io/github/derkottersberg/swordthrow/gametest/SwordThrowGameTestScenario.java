@@ -155,6 +155,50 @@ public final class SwordThrowGameTestScenario {
         });
     }
 
+    public static void validatesPartialChargePowerAndTapSafety(GameTestHelper helper) {
+        ServerPlayer tap = makePlayerInTest(helper, 1);
+        ServerPlayer minimum = makePlayerInTest(helper, 1);
+        ServerPlayer partial = makePlayerInTest(helper, 2);
+        ServerPlayer full = makePlayerInTest(helper, 2);
+        for (ServerPlayer player : List.of(tap, minimum, partial, full)) {
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+            SwordThrow.handleThrowAction(player, ThrowActionPayload.start());
+        }
+        double[] partialSpeed = new double[1];
+        helper.runAfterDelay(1L, () -> {
+            SwordThrow.handleThrowAction(tap, ThrowActionPayload.release(30));
+            helper.assertTrue(findProjectile(helper, tap) == null, "A forged full-power tap spawned a projectile");
+            helper.assertTrue(tap.getMainHandItem().is(Items.IRON_SWORD), "A rejected tap consumed its item");
+        });
+        helper.runAfterDelay(2L, () -> {
+            SwordThrow.handleThrowAction(minimum, ThrowActionPayload.release(2));
+            ThrownSwordEntity projectile = findProjectile(helper, minimum);
+            helper.assertTrue(projectile != null, "The minimum deliberate hold did not throw");
+            helper.assertTrue(minimum.getMainHandItem().isEmpty(), "The minimum throw duplicated its held item");
+            helper.assertTrue(Math.abs(projectile.getDeltaMovement().length() - ChargeMath.speed(2)) < 0.05D,
+                "The minimum throw used the wrong power");
+        });
+        helper.runAfterDelay(5L, () -> {
+            SwordThrow.handleThrowAction(partial, ThrowActionPayload.release(5));
+            ThrownSwordEntity projectile = findProjectile(helper, partial);
+            helper.assertTrue(projectile != null, "A short partial hold did not throw");
+            helper.assertTrue(partial.getMainHandItem().isEmpty(), "The partial throw duplicated its held item");
+            partialSpeed[0] = projectile.getDeltaMovement().length();
+            helper.assertTrue(Math.abs(partialSpeed[0] - ChargeMath.speed(5)) < 0.05D,
+                "The partial throw used full-power or incorrect velocity");
+        });
+        helper.runAfterDelay(30L, () -> {
+            SwordThrow.handleThrowAction(full, ThrowActionPayload.release(30));
+            ThrownSwordEntity projectile = findProjectile(helper, full);
+            helper.assertTrue(projectile != null, "A full hold did not throw");
+            helper.assertTrue(full.getMainHandItem().isEmpty(), "The full throw duplicated its held item");
+            double fullSpeed = projectile.getDeltaMovement().length();
+            helper.assertTrue(Math.abs(fullSpeed - ChargeMath.speed(30)) < 0.05D, "Full-power tuning changed");
+            helper.assertTrue(fullSpeed > partialSpeed[0] + 0.8D, "A longer hold did not increase throw power");
+            helper.succeed();
+        });
+    }
+
     public static void duplicateStartDoesNotReset(GameTestHelper helper) {
         ServerPlayer player = makePlayerInTest(helper, 1);
         ServerPlayer lateObserver = makePlayerInTest(helper, 2);

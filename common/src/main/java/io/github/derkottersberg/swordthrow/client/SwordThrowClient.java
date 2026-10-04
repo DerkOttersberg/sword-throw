@@ -79,6 +79,12 @@ public final class SwordThrowClient {
             cancelCharge(true);
         }
 
+        // Count elapsed ticks after START, including the release tick. START itself
+        // has elapsed zero ticks; counting it would overstate the server clock.
+        if (charging) {
+            chargeTicks = Math.min(chargeTicks + 1, ChargeMath.MAX_CHARGE_TICKS);
+        }
+
         if (keyDown && canThrowHeldItem && !serverRejectedUntilKeyRelease) {
             if (!charging) {
                 charging = true;
@@ -88,7 +94,6 @@ public final class SwordThrowClient {
                 requireServices().sendToServer(ThrowActionPayload.start());
             }
 
-            chargeTicks = Math.min(chargeTicks + 1, ChargeMath.MAX_CHARGE_TICKS);
             LOCAL_POSE.setChargeProgress(ChargeMath.progress(chargeTicks));
             return;
         }
@@ -102,7 +107,7 @@ public final class SwordThrowClient {
             return;
         }
 
-        if (chargeTicks >= ChargeMath.MIN_CHARGE_TICKS) {
+        if (ChargeMath.canRelease(chargeTicks)) {
             LOCAL_POSE.releaseForward(ChargeMath.progress(chargeTicks));
             requireServices().sendToServer(ThrowActionPayload.release(chargeTicks));
             clearChargeFields();
@@ -110,7 +115,9 @@ public final class SwordThrowClient {
             requireServices().sendToServer(ThrowActionPayload.cancel());
             LOCAL_POSE.cancel();
             clearChargeFields();
-            allowNormalSingleItemDrop(client);
+            if (throwKey.same(client.options.keyDrop)) {
+                allowNormalSingleItemDrop(client);
+            }
         }
     }
 
@@ -125,7 +132,7 @@ public final class SwordThrowClient {
     }
 
     public static void renderChargeBar(GuiGraphicsExtractor graphics) {
-        if (!LOCAL_POSE.isChargeIndicatorVisible()) {
+        if (!charging) {
             return;
         }
 
@@ -134,9 +141,11 @@ public final class SwordThrowClient {
         int right = left + CHARGE_BAR_WIDTH;
         int bottom = top + CHARGE_BAR_HEIGHT;
 
-        float progress = LOCAL_POSE.getChargeIndicatorProgress(1.0F);
-        int fillWidth = Math.max(1, Math.round((CHARGE_BAR_WIDTH - 2) * progress));
-        int fillColor = progress >= 0.5F ? 0xFFDDD37A : 0xFFC96A6A;
+        // Power feedback must follow input time, not the deliberately smoothed arm pose.
+        float progress = ChargeMath.progress(chargeTicks);
+        int fillWidth = Math.round((CHARGE_BAR_WIDTH - 2) * progress);
+        int fillColor = chargeTicks >= ChargeMath.MAX_CHARGE_TICKS ? 0xFFDDD37A
+            : ChargeMath.canRelease(chargeTicks) ? 0xFF7DBEC9 : 0xFFC96A6A;
 
         graphics.fill(left - 1, top - 1, right + 1, bottom + 1, 0xAA111111);
         graphics.fill(left, top, right, bottom, 0xCC2A2A2A);

@@ -28,6 +28,11 @@ public final class SwordThrowNeoForgeGameTests {
             "changed_stack_rejected",
             () -> SwordThrowGameTestScenario::rejectsChangedStack
         );
+    private static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> PARTIAL_CHARGE =
+        TEST_FUNCTIONS.register(
+            "partial_charge_power_and_tap_safety",
+            () -> SwordThrowGameTestScenario::validatesPartialChargePowerAndTapSafety
+        );
     private static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> MISSING_AND_STALE_REJECTED =
         TEST_FUNCTIONS.register(
             "missing_and_stale_sessions_rejected",
@@ -63,6 +68,7 @@ public final class SwordThrowNeoForgeGameTests {
             new TestEnvironmentDefinition.AllOf()
         );
         registerTest(event, environment, "authoritative_throw", AUTHORITATIVE_THROW, 40);
+        registerTest(event, environment, "partial_charge_power_and_tap_safety", PARTIAL_CHARGE, 50);
         registerTest(event, environment, "changed_stack_rejected", CHANGED_STACK_REJECTED, 40);
         registerTest(event, environment, "missing_and_stale_sessions_rejected", MISSING_AND_STALE_REJECTED, 110);
         registerTest(event, environment, "duplicate_start_preserves_charge", DUPLICATE_START, 40);

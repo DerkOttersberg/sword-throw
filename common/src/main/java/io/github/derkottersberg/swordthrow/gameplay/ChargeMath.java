@@ -2,7 +2,8 @@ package io.github.derkottersberg.swordthrow.gameplay;
 
 /** Pure charge validation shared by runtime code and unit tests. */
 public final class ChargeMath {
-    public static final int MIN_CHARGE_TICKS = 15;
+    // Separate a deliberate hold from a vanilla Drop Item tap, not from full power.
+    public static final int MIN_CHARGE_TICKS = 2;
     public static final int MAX_CHARGE_TICKS = 30;
     public static final int MAX_SESSION_AGE_TICKS = 80;
 
@@ -21,6 +22,10 @@ public final class ChargeMath {
 
     public static float progress(int chargeTicks) {
         return clampCharge(chargeTicks) / (float) MAX_CHARGE_TICKS;
+    }
+
+    public static boolean canRelease(int chargeTicks) {
+        return clampCharge(chargeTicks) >= MIN_CHARGE_TICKS;
     }
 
     public static float speed(int chargeTicks) {

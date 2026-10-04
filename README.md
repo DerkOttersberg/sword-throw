@@ -12,7 +12,9 @@ Sword Throw lets you charge a configurable Throw Item key and launch nearly any 
 
 ## Controls
 
-Hold the Throw Item key (`Q` by default) for at least 15 ticks, then release it to throw the entire main-hand stack. Its binding is separate from Drop Item, but upgrading from an older config copies the existing Drop Item binding once so established controls keep working. When both actions share a key, a short press still drops one item and Ctrl+Drop still performs vanilla whole-stack dropping. Vanilla tridents retain their vanilla behavior unless a data pack explicitly adds them to `swordthrow:throwable`.
+Hold the Throw Item key (`Q` by default) for at least 2 ticks (about 0.1 seconds at 20 TPS), then release it to throw the entire main-hand stack. You do not need full charge: longer holds smoothly increase launch speed, range, and velocity-based impact damage, reaching maximum power after 30 ticks (about 1.5 seconds). The charge bar is red before a throw is ready, blue for a ready partial throw, and gold only at full power.
+
+Its binding is separate from Drop Item, but upgrading from an older config copies the existing Drop Item binding once so established controls keep working. When both actions share a key, a shorter tap still drops one item and Ctrl+Drop still performs vanilla whole-stack dropping. A tap on a separately bound Throw Item key cancels without dropping anything. Vanilla tridents retain their vanilla behavior unless a data pack explicitly adds them to `swordthrow:throwable`.
 
 The server owns charge timing, validates that the exact held stack did not change, and removes the item only after the projectile was successfully spawned. Charge, release, and cancellation states are synchronized to the thrower and every tracking client, including players who begin tracking mid-charge.
 

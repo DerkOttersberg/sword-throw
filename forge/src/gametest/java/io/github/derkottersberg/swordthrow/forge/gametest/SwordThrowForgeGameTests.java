@@ -39,6 +39,11 @@ public final class SwordThrowForgeGameTests {
         SwordThrowGameTestScenario.validatesRulesCodecsAndAuthoritativeThrow(helper);
     }
 
+    @GameTest(name = "partial_charge_power_and_tap_safety", maxTicks = 50)
+    public static void partialChargePowerAndTapSafety(GameTestHelper helper) {
+        SwordThrowGameTestScenario.validatesPartialChargePowerAndTapSafety(helper);
+    }
+
     @GameTest(name = "changed_stack_rejected", maxTicks = 40)
     public static void changedStackRejected(GameTestHelper helper) {
         SwordThrowGameTestScenario.rejectsChangedStack(helper);

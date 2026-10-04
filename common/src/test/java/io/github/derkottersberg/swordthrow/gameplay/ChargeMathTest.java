@@ -8,6 +8,31 @@ import org.junit.jupiter.api.Test;
 
 class ChargeMathTest {
     @Test
+    void acceptsPartialHoldsButNotDropTapsOrForgedTime() {
+        assertFalse(ChargeMath.canRelease(-1));
+        assertFalse(ChargeMath.canRelease(0));
+        assertFalse(ChargeMath.canRelease(1));
+        assertTrue(ChargeMath.canRelease(2));
+        assertTrue(ChargeMath.canRelease(5));
+        assertTrue(ChargeMath.canRelease(15));
+        assertTrue(ChargeMath.canRelease(30));
+        assertFalse(ChargeMath.canRelease(ChargeMath.effectiveCharge(1, 30)));
+        assertFalse(ChargeMath.canRelease(ChargeMath.effectiveCharge(30, 1)));
+    }
+
+    @Test
+    void partialPowerScalesContinuouslyUpToFullCharge() {
+        assertEquals(1.18F, ChargeMath.speed(2), 0.0001F);
+        assertEquals(1.30F, ChargeMath.speed(5), 0.0001F);
+        assertEquals(1.70F, ChargeMath.speed(15), 0.0001F);
+        assertEquals(1.0F, ChargeMath.progress(30));
+        for (int ticks = ChargeMath.MIN_CHARGE_TICKS; ticks < ChargeMath.MAX_CHARGE_TICKS; ticks++) {
+            assertTrue(ChargeMath.speed(ticks + 1) > ChargeMath.speed(ticks));
+            assertTrue(ChargeMath.cooldown(ticks + 1) >= ChargeMath.cooldown(ticks));
+        }
+    }
+
+    @Test
     void neverTrustsChargeBeyondEitherClock() {
         assertEquals(12, ChargeMath.effectiveCharge(12, 30));
         assertEquals(9, ChargeMath.effectiveCharge(30, 9));

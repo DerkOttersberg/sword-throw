@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:function",
+  "environment": "minecraft:default",
+  "function": "swordthrow:partial_charge_power_and_tap_safety",
+  "max_ticks": 50,
+  "structure": "forge:empty3x3x3"
+}

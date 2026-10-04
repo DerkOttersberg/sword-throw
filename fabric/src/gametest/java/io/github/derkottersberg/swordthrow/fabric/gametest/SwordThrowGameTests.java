@@ -6,6 +6,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 
 @SuppressWarnings("removal")
 public final class SwordThrowGameTests {
+    @GameTest(maxTicks = 50)
+    public void partialChargePowerAndTapSafety(GameTestHelper helper) {
+        SwordThrowGameTestScenario.validatesPartialChargePowerAndTapSafety(helper);
+    }
+
     @GameTest(maxTicks = 40)
     public void validatesChargeRegistersAndSpawnsProjectile(GameTestHelper helper) {
         SwordThrowGameTestScenario.validatesRulesCodecsAndAuthoritativeThrow(helper);
