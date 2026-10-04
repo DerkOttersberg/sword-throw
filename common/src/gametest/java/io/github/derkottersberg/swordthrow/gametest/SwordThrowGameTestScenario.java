@@ -20,79 +20,61 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.ItemTags;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /** Loader-neutral live scenarios wrapped by Fabric, Forge, and NeoForge test registration. */
 public final class SwordThrowGameTestScenario {
+    private static java.util.function.Function<GameTestHelper, ServerPlayer> playerFactory = GameTestHelper::makeMockServerPlayerInLevel;
+
+    public static void usePlayerFactory(java.util.function.Function<GameTestHelper, ServerPlayer> factory) {
+        playerFactory = java.util.Objects.requireNonNull(factory);
+    }
+
     private SwordThrowGameTestScenario() {
     }
 
     public static void validatesRulesCodecsAndAuthoritativeThrow(GameTestHelper helper) {
-        helper.assertValueEqual(
-            BuiltInRegistries.ENTITY_TYPE.getKey(ModEntities.thrownSword()),
-            SwordThrow.id("thrown_sword"),
-            "The preserved thrown-sword entity ID changed"
-        );
+        helper.assertTrue(java.util.Objects.equals(BuiltInRegistries.ENTITY_TYPE.getKey(ModEntities.thrownSword()), SwordThrow.id("thrown_sword")), "The preserved thrown-sword entity ID changed");
         helper.assertTrue(SwordThrow.canThrow(new ItemStack(Items.FEATHER)), "Untagged items stopped being throwable");
         helper.assertTrue(ThrowItemRules.isSpear(new ItemStack(Items.TRIDENT)), "The default spear tag is missing trident");
         helper.assertTrue(ThrowItemRules.canEmbed(new ItemStack(Items.DIAMOND_SWORD)), "The embeddable tag is missing swords");
 
-        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(
-            Unpooled.buffer(),
-            helper.getLevel().registryAccess()
-        );
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
             ThrowActionPayload action = ThrowActionPayload.release(30);
             ThrowActionPayload.STREAM_CODEC.encode(buffer, action);
-            helper.assertValueEqual(
-                ThrowActionPayload.STREAM_CODEC.decode(buffer),
-                action,
-                "The throw-action payload codec changed contents"
-            );
+            helper.assertTrue(java.util.Objects.equals(ThrowActionPayload.STREAM_CODEC.decode(buffer), action), "The throw-action payload codec changed contents");
             ThrowStatePayload state = ThrowStatePayload.release(42, 27);
             ThrowStatePayload.STREAM_CODEC.encode(buffer, state);
-            helper.assertValueEqual(
-                ThrowStatePayload.STREAM_CODEC.decode(buffer),
-                state,
-                "The throw-state payload codec changed contents"
-            );
+            helper.assertTrue(java.util.Objects.equals(ThrowStatePayload.STREAM_CODEC.decode(buffer), state), "The throw-state payload codec changed contents");
         } finally {
             buffer.release();
         }
 
         ServerPlayer player = makePlayerInTest(helper);
         ItemStack originalStack = new ItemStack(Items.DIAMOND_SWORD, 3);
-        originalStack.set(DataComponents.CUSTOM_NAME, Component.literal("Conserved throw"));
+        originalStack.setHoverName(Component.literal("Conserved throw"));
         originalStack.enchant(
-            helper.getLevel()
-                .registryAccess()
-                .lookupOrThrow(Registries.ENCHANTMENT)
-                .getOrThrow(Enchantments.UNBREAKING),
+            Enchantments.UNBREAKING,
             2
         );
         player.setItemInHand(InteractionHand.MAIN_HAND, originalStack.copy());
@@ -103,20 +85,12 @@ public final class SwordThrowGameTestScenario {
             ThrownSwordEntity projectile = findProjectile(helper, player);
             helper.assertTrue(projectile != null, "A valid authoritative charge did not spawn a projectile");
             helper.assertTrue(player.getMainHandItem().isEmpty(), "The spawned projectile did not receive the held stack");
-            helper.assertValueEqual(
-                BuiltInRegistries.ITEM.getKey(projectile.getItem().getItem()),
-                BuiltInRegistries.ITEM.getKey(originalStack.getItem()),
-                "The projectile changed the thrown item's registry ID"
-            );
+            helper.assertTrue(java.util.Objects.equals(BuiltInRegistries.ITEM.getKey(projectile.getItem().getItem()), BuiltInRegistries.ITEM.getKey(originalStack.getItem())), "The projectile changed the thrown item's registry ID");
             helper.assertTrue(
-                ItemStack.isSameItemSameComponents(projectile.getItem(), originalStack),
+                ItemStack.isSameItemSameTags(projectile.getItem(), originalStack),
                 "The projectile did not preserve all item components and enchantments"
             );
-            helper.assertValueEqual(
-                projectile.getThrownStackCount(),
-                originalStack.getCount(),
-                "The projectile did not preserve the represented stack count"
-            );
+            helper.assertTrue(java.util.Objects.equals(projectile.getThrownStackCount(), originalStack.getCount()), "The projectile did not preserve the represented stack count");
             helper.assertTrue(
                 projectile.getDeltaMovement().length() <= ChargeMath.speed(20) + 0.01F,
                 "The server trusted the client's full-charge claim after only a short server charge"
@@ -125,14 +99,10 @@ public final class SwordThrowGameTestScenario {
             ThrownSwordEntity reloaded = saveAndReload(helper, projectile);
             helper.assertTrue(reloaded != null, "The thrown entity did not reload from its preserved registry ID");
             helper.assertTrue(
-                ItemStack.isSameItemSameComponents(reloaded.getItem(), originalStack),
+                ItemStack.isSameItemSameTags(reloaded.getItem(), originalStack),
                 "Save/reload changed the thrown item's components or enchantments"
             );
-            helper.assertValueEqual(
-                reloaded.getThrownStackCount(),
-                originalStack.getCount(),
-                "Save/reload changed the represented stack count"
-            );
+            helper.assertTrue(java.util.Objects.equals(reloaded.getThrownStackCount(), originalStack.getCount()), "Save/reload changed the represented stack count");
             helper.succeed();
         });
     }
@@ -146,11 +116,7 @@ public final class SwordThrowGameTestScenario {
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
             SwordThrow.handleThrowAction(player, ThrowActionPayload.release(30));
             helper.assertTrue(findProjectile(helper, player) == null, "A changed held stack was accepted");
-            helper.assertValueEqual(
-                player.getMainHandItem().getItem(),
-                Items.DIAMOND_SWORD,
-                "A rejected throw consumed the replacement stack"
-            );
+            helper.assertTrue(java.util.Objects.equals(player.getMainHandItem().getItem(), Items.DIAMOND_SWORD), "A rejected throw consumed the replacement stack");
             helper.succeed();
         });
     }
@@ -214,12 +180,8 @@ public final class SwordThrowGameTestScenario {
             DeliveryCapture capture = captureDirectDelivery(() ->
                 SwordThrow.syncActiveChargeTo(lateObserver, player));
             helper.assertTrue(capture.accepted(), "The active charge was rejected for a newly tracking player");
-            helper.assertValueEqual(
-                capture.deliveries().size(),
-                1,
-                "Late tracking did not attempt exactly one direct payload delivery"
-            );
-            DirectDelivery delivery = capture.deliveries().getFirst();
+            helper.assertTrue(java.util.Objects.equals(capture.deliveries().size(), 1), "Late tracking did not attempt exactly one direct payload delivery");
+            DirectDelivery delivery = capture.deliveries().get(0);
             helper.assertTrue(
                 delivery.target() == lateObserver,
                 "Late tracking delivered the charge snapshot to the wrong observer"
@@ -229,17 +191,9 @@ public final class SwordThrowGameTestScenario {
                 "Late tracking attempted to deliver the wrong payload type"
             );
             ThrowStatePayload state = (ThrowStatePayload)delivery.payload();
-            helper.assertValueEqual(state.playerEntityId(), player.getId(), "The late snapshot named the wrong player");
-            helper.assertValueEqual(
-                state.phase(),
-                ThrowStatePayload.Phase.CHARGING,
-                "The late snapshot did not report an active charge"
-            );
-            helper.assertValueEqual(
-                state.chargeTicks(),
-                expectedChargeTicks,
-                "The late snapshot did not contain the authoritative server charge time"
-            );
+            helper.assertTrue(java.util.Objects.equals(state.playerEntityId(), player.getId()), "The late snapshot named the wrong player");
+            helper.assertTrue(java.util.Objects.equals(state.phase(), ThrowStatePayload.Phase.CHARGING), "The late snapshot did not report an active charge");
+            helper.assertTrue(java.util.Objects.equals(state.chargeTicks(), expectedChargeTicks), "The late snapshot did not contain the authoritative server charge time");
         });
         helper.runAfterDelay(16L, () -> {
             SwordThrow.handleThrowAction(player, ThrowActionPayload.release(16));
@@ -255,7 +209,7 @@ public final class SwordThrowGameTestScenario {
     public static void rejectsMissingAndStaleSessions(GameTestHelper helper) {
         ServerPlayer stalePlayer = makePlayerInTest(helper, 1);
         ItemStack staleStack = new ItemStack(Items.IRON_AXE);
-        staleStack.set(DataComponents.CUSTOM_NAME, Component.literal("Stale session must conserve me"));
+        staleStack.setHoverName(Component.literal("Stale session must conserve me"));
         stalePlayer.setItemInHand(InteractionHand.MAIN_HAND, staleStack.copy());
         SwordThrow.handleThrowAction(stalePlayer, ThrowActionPayload.start());
 
@@ -269,7 +223,7 @@ public final class SwordThrowGameTestScenario {
 
             ServerPlayer missingPlayer = makePlayerInTest(helper, 2);
             ItemStack missingStack = new ItemStack(Items.DIAMOND_PICKAXE);
-            missingStack.set(DataComponents.CUSTOM_NAME, Component.literal("Missing session must conserve me"));
+            missingStack.setHoverName(Component.literal("Missing session must conserve me"));
             missingPlayer.setItemInHand(InteractionHand.MAIN_HAND, missingStack.copy());
             SwordThrow.handleThrowAction(missingPlayer, ThrowActionPayload.release(ChargeMath.MAX_CHARGE_TICKS));
             helper.assertTrue(
@@ -285,14 +239,11 @@ public final class SwordThrowGameTestScenario {
     }
 
     public static void validatesConfiguredImpactDamageAndTagPrecedence(GameTestHelper helper) {
-        ItemStack nativeSpear = new ItemStack(Items.DIAMOND_SPEAR);
-        helper.assertTrue(nativeSpear.is(ItemTags.SPEARS), "The vanilla 26.2 spear tag is missing diamond spears");
-        helper.assertTrue(
-            nativeSpear.is(SwordThrowItemTags.SPEARS) && ThrowItemRules.isSpear(nativeSpear),
-            "swordthrow:spears did not inherit the native Minecraft spear tag"
-        );
-        helper.assertTrue(SwordThrow.canThrow(nativeSpear), "A native 26.2 spear is not throwable");
-        helper.assertTrue(ThrowItemRules.canEmbed(nativeSpear), "A native 26.2 spear is not embeddable");
+        // 1.20.1 has no native spear item/tag. The preserved extension tag
+        // includes tridents and can be extended by mods or data packs.
+        ItemStack nativeSpear = new ItemStack(Items.TRIDENT);
+        helper.assertTrue(ThrowItemRules.isSpear(nativeSpear), "The trident spear classification is missing");
+        helper.assertTrue(ThrowItemRules.canEmbed(nativeSpear), "The trident cannot embed");
 
         ItemStack explicitlyAllowedTrident = new ItemStack(Items.TRIDENT);
         helper.assertTrue(
@@ -324,7 +275,7 @@ public final class SwordThrowGameTestScenario {
         );
 
         ServerPlayer owner = makePlayerInTest(helper, 1);
-        LivingEntity target = helper.spawnWithNoFreeWill(EntityTypes.PIG, new BlockPos(2, 2, 1));
+        LivingEntity target = helper.spawnWithNoFreeWill(EntityType.PIG, new BlockPos(2, 2, 1));
         ItemStack thrownStack = new ItemStack(Items.FEATHER);
         float configuredStandardMultiplier = 4.0F;
         float configuredSpearMultiplier = 0.25F;
@@ -356,7 +307,7 @@ public final class SwordThrowGameTestScenario {
             projectile.discard();
             target.discard();
 
-            LivingEntity spearTarget = helper.spawnWithNoFreeWill(EntityTypes.PIG, new BlockPos(2, 2, 1));
+            LivingEntity spearTarget = helper.spawnWithNoFreeWill(EntityType.PIG, new BlockPos(2, 2, 1));
             TestThrownSwordEntity spearProjectile = new TestThrownSwordEntity(
                 helper.getLevel(),
                 owner,
@@ -372,7 +323,7 @@ public final class SwordThrowGameTestScenario {
             float spearHealthBefore = spearTarget.getHealth();
             spearProjectile.hitTarget(spearTarget);
             float actualSpearDamage = spearHealthBefore - spearTarget.getHealth();
-            float spearBaseline = 4.0F;
+            float spearBaseline = 9.0F;
             float expectedSpearDamage = Math.max(spearBaseline * 1.45F, spearBaseline + 2.5F)
                 * (0.65F + impactSpeed * 0.7F)
                 * 1.35F
@@ -396,12 +347,9 @@ public final class SwordThrowGameTestScenario {
         ServerPlayer picker = makePlayerInTest(helper, 1);
 
         ItemStack embeddedStack = new ItemStack(Items.TRIDENT);
-        embeddedStack.set(DataComponents.CUSTOM_NAME, Component.literal("Component-safe pickup"));
+        embeddedStack.setHoverName(Component.literal("Component-safe pickup"));
         embeddedStack.enchant(
-            helper.getLevel()
-                .registryAccess()
-                .lookupOrThrow(Registries.ENCHANTMENT)
-                .getOrThrow(Enchantments.UNBREAKING),
+            Enchantments.UNBREAKING,
             3
         );
         TestThrownSwordEntity embedded = new TestThrownSwordEntity(helper.getLevel(), picker, embeddedStack);
@@ -411,23 +359,23 @@ public final class SwordThrowGameTestScenario {
         embedded.hitBlock(headOnHit);
         helper.assertTrue(embedded.isEmbedded(), "An embeddable spear bounced instead of embedding");
         helper.assertTrue(
-            ItemStack.isSameItemSameComponents(embedded.getItem(), embeddedStack),
+            ItemStack.isSameItemSameTags(embedded.getItem(), embeddedStack),
             "Embedding changed the projectile's item components"
         );
 
         embedded.playerTouch(picker);
         ItemStack recovered = picker.getInventory()
-            .getNonEquipmentItems()
+            .items
             .stream()
-            .filter(stack -> ItemStack.isSameItemSameComponents(stack, embeddedStack))
+            .filter(stack -> ItemStack.isSameItemSameTags(stack, embeddedStack))
             .findFirst()
             .orElse(ItemStack.EMPTY);
         helper.assertTrue(!recovered.isEmpty(), "The player could not pick up the embedded projectile");
-        helper.assertValueEqual(recovered.getCount(), embeddedStack.getCount(), "Pickup changed the stack count");
+        helper.assertTrue(java.util.Objects.equals(recovered.getCount(), embeddedStack.getCount()), "Pickup changed the stack count");
         helper.assertTrue(embedded.isRemoved(), "A fully picked-up projectile remained in the level");
 
         ItemStack bouncingStack = new ItemStack(Items.FEATHER);
-        bouncingStack.set(DataComponents.CUSTOM_NAME, Component.literal("Component-safe bounce"));
+        bouncingStack.setHoverName(Component.literal("Component-safe bounce"));
         TestThrownSwordEntity bouncing = new TestThrownSwordEntity(helper.getLevel(), picker, bouncingStack);
         bouncing.setPos(westFace.add(-1.0D, 0.0D, 0.0D));
         bouncing.setDeltaMovement(new Vec3(1.0D, 0.0D, 0.0D));
@@ -437,7 +385,7 @@ public final class SwordThrowGameTestScenario {
         helper.assertTrue(!bouncing.isRemoved(), "A viable bounce discarded the projectile");
         helper.assertTrue(bouncing.getDeltaMovement().x < 0.0D, "The block impact did not reflect the projectile");
         helper.assertTrue(
-            ItemStack.isSameItemSameComponents(bouncing.getItem(), bouncingStack),
+            ItemStack.isSameItemSameTags(bouncing.getItem(), bouncingStack),
             "Bouncing changed the projectile's item components"
         );
         bouncing.discard();
@@ -449,7 +397,7 @@ public final class SwordThrowGameTestScenario {
     }
 
     private static ServerPlayer makePlayerInTest(GameTestHelper helper, int localX) {
-        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        ServerPlayer player = playerFactory.apply(helper);
         player.getAbilities().instabuild = false;
         BlockPos position = helper.absolutePos(new BlockPos(localX, 2, 1));
         player.setPos(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D);
@@ -466,19 +414,9 @@ public final class SwordThrowGameTestScenario {
     }
 
     private static ThrownSwordEntity saveAndReload(GameTestHelper helper, ThrownSwordEntity projectile) {
-        TagValueOutput output = TagValueOutput.createWithContext(
-            ProblemReporter.DISCARDING,
-            helper.getLevel().registryAccess()
-        );
-        projectile.save(output);
-        CompoundTag saved = output.buildResult();
-        Entity reloaded = EntityType.loadEntityRecursive(
-            ModEntities.thrownSword(),
-            saved,
-            helper.getLevel(),
-            EntitySpawnReason.LOAD,
-            entity -> entity
-        );
+        CompoundTag saved = new CompoundTag();
+        projectile.save(saved);
+        Entity reloaded = EntityType.loadEntityRecursive(saved, helper.getLevel(), entity -> entity);
         return reloaded instanceof ThrownSwordEntity thrownSword ? thrownSword : null;
     }
 
@@ -496,7 +434,7 @@ public final class SwordThrowGameTestScenario {
                         && arguments != null
                         && arguments.length == 2
                         && arguments[0] instanceof ServerPlayer target
-                        && arguments[1] instanceof CustomPacketPayload payload) {
+                        && arguments[1] instanceof ThrowStatePayload payload) {
                         deliveries.add(new DirectDelivery(target, payload));
                     }
                     try {
@@ -520,7 +458,7 @@ public final class SwordThrowGameTestScenario {
         }
     }
 
-    private record DirectDelivery(ServerPlayer target, CustomPacketPayload payload) {
+    private record DirectDelivery(ServerPlayer target, ThrowStatePayload payload) {
     }
 
     private record DeliveryCapture(boolean accepted, List<DirectDelivery> deliveries) {

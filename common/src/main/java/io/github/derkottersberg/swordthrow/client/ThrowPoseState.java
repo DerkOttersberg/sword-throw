@@ -3,8 +3,8 @@ package io.github.derkottersberg.swordthrow.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.player.PlayerModel;
-import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
 
@@ -91,9 +91,9 @@ public final class ThrowPoseState {
             MAIN_HAND_BASE_LIFT + 0.27F * pose.windUp() - 0.025F * pose.release() + 0.012F * pose.mainSwayLift(),
             0.12F * pose.windUp() - 0.28F * pose.release() - 0.010F * pose.mainSwayDepth()
         );
-        poseStack.rotate(Axis.YP.rotationDegrees(pose.side() * (12.0F * pose.windUp() - 5.0F * pose.release() + 2.5F * pose.mainSwaySide())));
-        poseStack.rotate(Axis.XP.rotationDegrees(-126.0F * pose.windUp() + 38.0F * pose.release() - 2.0F * pose.mainSwayLift()));
-        poseStack.rotate(Axis.ZP.rotationDegrees(-pose.side() * 12.0F * pose.windUp() + pose.side() * 9.0F * pose.release() + pose.side() * 4.0F * pose.mainSwayRoll()));
+        poseStack.mulPose(Axis.YP.rotationDegrees(pose.side() * (12.0F * pose.windUp() - 5.0F * pose.release() + 2.5F * pose.mainSwaySide())));
+        poseStack.mulPose(Axis.XP.rotationDegrees(-126.0F * pose.windUp() + 38.0F * pose.release() - 2.0F * pose.mainSwayLift()));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(-pose.side() * 12.0F * pose.windUp() + pose.side() * 9.0F * pose.release() + pose.side() * 4.0F * pose.mainSwayRoll()));
     }
 
     public void applyOffHandAimContext(float age, PoseStack poseStack, HumanoidArm offArm, float tickDelta) {
@@ -112,24 +112,29 @@ public final class ThrowPoseState {
             OFF_HAND_BASE_LIFT + -0.04F * hidden + 0.55F * extend - 0.18F * drop + 0.006F * pose.offSwayLift(),
             0.06F * hidden - 0.36F * extend - 0.006F * pose.offSwayDepth()
         );
-        poseStack.rotate(Axis.YP.rotationDegrees(pose.offHandSide() * (-34.0F * hidden + 40.0F * extend + 2.0F * pose.offSwaySide())));
-        poseStack.rotate(Axis.XP.rotationDegrees(10.0F * hidden - 68.0F * extend + 8.0F * drop - 1.0F * pose.offSwayLift()));
-        poseStack.rotate(Axis.ZP.rotationDegrees(pose.offHandSide() * (-14.0F * hidden - 14.0F * extend + 2.5F * pose.offSwayRoll())));
+        poseStack.mulPose(Axis.YP.rotationDegrees(pose.offHandSide() * (-34.0F * hidden + 40.0F * extend + 2.0F * pose.offSwaySide())));
+        poseStack.mulPose(Axis.XP.rotationDegrees(10.0F * hidden - 68.0F * extend + 8.0F * drop - 1.0F * pose.offSwayLift()));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(pose.offHandSide() * (-14.0F * hidden - 14.0F * extend + 2.5F * pose.offSwayRoll())));
     }
 
     /** Called after vanilla setupAnim resets the model for this player and frame. */
-    public void applyThirdPersonPose(AvatarRenderState state, PlayerModel model) {
-        if (state.isSpectator || state.mainArm == null || !Float.isFinite(state.ageInTicks)) {
+    public void applyThirdPersonPose(AbstractClientPlayer player, float age, PlayerModel<?> model) {
+        if (player.isSpectator() || !Float.isFinite(age)) {
             return;
         }
-        applyThirdPersonMainHandPose(state.ageInTicks, state.mainArm, model.getArm(state.mainArm));
-        HumanoidArm offArm = state.mainArm.getOpposite();
-        applyThirdPersonOffHandPose(state.ageInTicks, offArm, model.getArm(offArm));
+        applyThirdPersonPose(age, player.getMainArm(), model);
+    }
 
-        // Since 26.2, sleeves are children of the arms (with their own local pose).
-        // They inherit the animation once. Copying the parent transform into them
-        // applies it twice and also overrides vanilla skin-part visibility.
-        // Leave all child transforms, visibility, and skipDraw flags untouched.
+    void applyThirdPersonPose(float age, HumanoidArm mainArm, PlayerModel<?> model) {
+        if (mainArm == null || !Float.isFinite(age)) return;
+        applyThirdPersonMainHandPose(age, mainArm, mainArm == HumanoidArm.RIGHT ? model.rightArm : model.leftArm);
+        HumanoidArm offArm = mainArm.getOpposite();
+        applyThirdPersonOffHandPose(age, offArm, offArm == HumanoidArm.RIGHT ? model.rightArm : model.leftArm);
+
+        // In 1.20.1 sleeves are siblings, not arm children. Copy the final arm
+        // transforms once, after the throw pose, while preserving skin visibility.
+        model.rightSleeve.copyFrom(model.rightArm);
+        model.leftSleeve.copyFrom(model.leftArm);
     }
 
     public void applyThirdPersonOffHandPose(float age, HumanoidArm offArmSide, ModelPart offArm) {

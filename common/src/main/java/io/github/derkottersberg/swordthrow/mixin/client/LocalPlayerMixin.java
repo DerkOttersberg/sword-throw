@@ -7,13 +7,13 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(MultiPlayerGameMode.class)
+@Mixin(LocalPlayer.class)
 public class LocalPlayerMixin {
 
-    @Inject(method = "dropItem", at = @At("HEAD"), cancellable = true)
-    private void swordthrow$redirectDropKeyToThrow(LocalPlayer player, boolean dropAll, CallbackInfo cir) {
+    @Inject(method = "drop", at = @At("HEAD"), cancellable = true)
+    private void swordthrow$redirectDropKeyToThrow(boolean dropAll, CallbackInfoReturnable<Boolean> cir) {
         if (dropAll) {
             return;
         }
@@ -23,7 +23,7 @@ public class LocalPlayerMixin {
         }
 
         if (SwordThrowClient.shouldInterceptDropKey(Minecraft.getInstance())) {
-            cir.cancel();
+            cir.setReturnValue(false);
         }
     }
 }

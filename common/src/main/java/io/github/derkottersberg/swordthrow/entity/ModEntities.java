@@ -23,7 +23,7 @@ public final class ModEntities {
                 .sized(0.5F, 0.5F)
                 .clientTrackingRange(6)
                 .updateInterval(2)
-                .build(ResourceKey.create(Registries.ENTITY_TYPE, SwordThrow.id("thrown_sword")))
+                .build(SwordThrow.id("thrown_sword").toString())
         );
     }
 

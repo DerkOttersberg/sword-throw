@@ -3,9 +3,7 @@ package io.github.derkottersberg.swordthrow.entity;
 import io.github.derkottersberg.swordthrow.SwordThrow;
 import io.github.derkottersberg.swordthrow.config.SwordThrowServerConfig;
 import io.github.derkottersberg.swordthrow.gameplay.ThrowItemRules;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -19,18 +17,15 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrowableItemProjectile;
+import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -82,17 +77,18 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     public ThrownSwordEntity(Level level, LivingEntity owner, ItemStack stack) {
-        super(ModEntities.thrownSword(), owner, level, stack.copyWithCount(1));
+        super(ModEntities.thrownSword(), owner, level);
+        this.setItem(stack.copyWithCount(1));
         this.thrownStackCount = Math.max(1, stack.getCount());
     }
 
     @Override
-    protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        super.defineSynchedData(builder);
-        builder.define(DATA_EMBEDDED, false);
-        builder.define(DATA_EMBEDDED_ROLL, 0.0F);
-        builder.define(DATA_EMBEDDED_YAW, 0.0F);
-        builder.define(DATA_EMBEDDED_PITCH, 0.0F);
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        this.entityData.define(DATA_EMBEDDED, false);
+        this.entityData.define(DATA_EMBEDDED_ROLL, 0.0F);
+        this.entityData.define(DATA_EMBEDDED_YAW, 0.0F);
+        this.entityData.define(DATA_EMBEDDED_PITCH, 0.0F);
     }
 
     @Override
@@ -136,8 +132,8 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     @Override
-    protected double getDefaultGravity() {
-        return 0.06D;
+    protected float getGravity() {
+        return 0.06F;
     }
 
     @Override
@@ -154,7 +150,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
 
         DamageSource source = this.damageSources().thrown(this, this.getOwner());
         float damage = this.getThrownDamage(serverLevel, this.getItem(), hitResult.getEntity(), source);
-        hitResult.getEntity().hurtServer(serverLevel, source, damage);
+        hitResult.getEntity().hurt(source, damage);
         this.applyThrownHitEffects(serverLevel, this.getItem(), hitResult, source);
         this.dropAsItemAndDiscard();
     }
@@ -172,7 +168,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
         }
 
         Vec3 velocity = this.getDeltaMovement();
-        Vec3 normal = hitResult.getDirection().getUnitVec3();
+        Vec3 normal = Vec3.atLowerCornerOf(hitResult.getDirection().getNormal());
         boolean firstBlockHit = !this.hitBlock;
         this.hitBlock = true;
 
@@ -243,7 +239,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     @Override
-    public void addAdditionalSaveData(ValueOutput output) {
+    public void addAdditionalSaveData(CompoundTag output) {
         super.addAdditionalSaveData(output);
         output.putInt(STACK_COUNT_KEY, this.thrownStackCount);
         output.putBoolean(HIT_BLOCK_KEY, this.hitBlock);
@@ -257,18 +253,18 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     @Override
-    public void readAdditionalSaveData(ValueInput input) {
+    public void readAdditionalSaveData(CompoundTag input) {
         super.readAdditionalSaveData(input);
-        this.thrownStackCount = Math.max(1, input.getIntOr(STACK_COUNT_KEY, 1));
-        this.hitBlock = input.getBooleanOr(HIT_BLOCK_KEY, false);
-        this.entityData.set(DATA_EMBEDDED, input.getBooleanOr(EMBEDDED_KEY, false));
-        this.entityData.set(DATA_EMBEDDED_ROLL, input.getFloatOr(EMBEDDED_ROLL_KEY, 0.0F));
-        this.entityData.set(DATA_EMBEDDED_YAW, input.getFloatOr(EMBEDDED_YAW_KEY, this.getYRot()));
-        this.entityData.set(DATA_EMBEDDED_PITCH, input.getFloatOr(EMBEDDED_PITCH_KEY, this.getXRot()));
+        this.thrownStackCount = Math.max(1, input.contains(STACK_COUNT_KEY) ? input.getInt(STACK_COUNT_KEY) : 1);
+        this.hitBlock = (input.contains(HIT_BLOCK_KEY) ? input.getBoolean(HIT_BLOCK_KEY) : false);
+        this.entityData.set(DATA_EMBEDDED, (input.contains(EMBEDDED_KEY) ? input.getBoolean(EMBEDDED_KEY) : false));
+        this.entityData.set(DATA_EMBEDDED_ROLL, (input.contains(EMBEDDED_ROLL_KEY) ? input.getFloat(EMBEDDED_ROLL_KEY) : 0.0F));
+        this.entityData.set(DATA_EMBEDDED_YAW, (input.contains(EMBEDDED_YAW_KEY) ? input.getFloat(EMBEDDED_YAW_KEY) : this.getYRot()));
+        this.entityData.set(DATA_EMBEDDED_PITCH, (input.contains(EMBEDDED_PITCH_KEY) ? input.getFloat(EMBEDDED_PITCH_KEY) : this.getXRot()));
         this.embeddedPosition = new Vec3(
-            input.getDoubleOr(EMBEDDED_X_KEY, 0.0D),
-            input.getDoubleOr(EMBEDDED_Y_KEY, 0.0D),
-            input.getDoubleOr(EMBEDDED_Z_KEY, 0.0D)
+            (input.contains(EMBEDDED_X_KEY) ? input.getDouble(EMBEDDED_X_KEY) : 0.0D),
+            (input.contains(EMBEDDED_Y_KEY) ? input.getDouble(EMBEDDED_Y_KEY) : 0.0D),
+            (input.contains(EMBEDDED_Z_KEY) ? input.getDouble(EMBEDDED_Z_KEY) : 0.0D)
         );
 
         if (this.isEmbedded()) {
@@ -380,7 +376,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
             damage *= tuning.cleanFlightDamageMultiplier();
         }
 
-        float enchantedDamage = EnchantmentHelper.modifyDamage(serverLevel, thrownStack, target, source, damage);
+        float enchantedDamage = damage + EnchantmentHelper.getDamageBonus(thrownStack, target instanceof LivingEntity living ? living.getMobType() : net.minecraft.world.entity.MobType.UNDEFINED);
         return enchantedDamage * (spear
             ? tuning.spearDamageMultiplier()
             : tuning.standardDamageMultiplier());
@@ -442,14 +438,8 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
         final float[] multipliedBase = new float[] {0.0F};
         final float[] multipliedTotal = new float[] {1.0F};
 
-        ItemAttributeModifiers modifiers = thrownStack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
-        modifiers.forEach(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
-            if (attribute.value() == Attributes.ATTACK_DAMAGE.value()) {
-                accumulateAttackDamageModifier(modifier, additive, multipliedBase, multipliedTotal);
-            }
-        });
-        EnchantmentHelper.forEachModifier(thrownStack, EquipmentSlot.MAINHAND, (attribute, modifier) -> {
-            if (attribute.value() == Attributes.ATTACK_DAMAGE.value()) {
+        thrownStack.getAttributeModifiers(EquipmentSlot.MAINHAND).forEach((attribute, modifier) -> {
+            if (attribute == Attributes.ATTACK_DAMAGE) {
                 accumulateAttackDamageModifier(modifier, additive, multipliedBase, multipliedTotal);
             }
         });
@@ -464,16 +454,16 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
 
         attacker.setLastHurtMob(target);
 
-        HolderLookup.RegistryLookup<Enchantment> enchantments = serverLevel.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
         int fireAspectLevel = SwordThrow.getEnchantmentLevel(
             thrownStack,
-            enchantments.getOrThrow(Enchantments.FIRE_ASPECT)
+            Enchantments.FIRE_ASPECT
         );
         if (fireAspectLevel > 0) {
-            target.igniteForSeconds(fireAspectLevel * 4.0F);
+            target.setSecondsOnFire(fireAspectLevel * 4);
         }
 
-        EnchantmentHelper.doPostAttackEffectsWithItemSource(serverLevel, target, source, thrownStack);
+        EnchantmentHelper.doPostHurtEffects(target, attacker);
+        EnchantmentHelper.getEnchantments(thrownStack).forEach((enchantment, level) -> enchantment.doPostAttack(attacker, target, level));
         if (attacker instanceof Player player) {
             thrownStack.hurtEnemy(target, player);
         }
@@ -563,10 +553,10 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
         float[] multipliedBase,
         float[] multipliedTotal
     ) {
-        switch (modifier.operation()) {
-            case ADD_VALUE -> additive[0] += (float)modifier.amount();
-            case ADD_MULTIPLIED_BASE -> multipliedBase[0] += (float)modifier.amount();
-            case ADD_MULTIPLIED_TOTAL -> multipliedTotal[0] *= 1.0F + (float)modifier.amount();
+        switch (modifier.getOperation()) {
+            case ADDITION -> additive[0] += (float)modifier.getAmount();
+            case MULTIPLY_BASE -> multipliedBase[0] += (float)modifier.getAmount();
+            case MULTIPLY_TOTAL -> multipliedTotal[0] *= 1.0F + (float)modifier.getAmount();
         }
     }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.1+mc1.20.1
+
+- Backport the current shared gameplay architecture to Minecraft 1.20.1, Java 17,
+  Fabric and Forge. NeoForge is intentionally excluded from this line.
+- Restore remapped loader jars, mixin refmaps, legacy NBT/data formats and bounded
+  networking without changing public compatibility or registry namespaces.
+- Preserve current config migration, UI clarity and item-conservation safeguards.
+
+
 ## 2.1.1+mc26.3
 
 - Adapt SDL-aware input, the new drop path, and extracted first-person render states. Preserve server-authoritative partial-charge throws, vanilla short-tap dropping, synchronized poses, and corrected sleeve parenting.

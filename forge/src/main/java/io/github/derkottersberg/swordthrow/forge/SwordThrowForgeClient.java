@@ -10,7 +10,9 @@ import io.github.derkottersberg.swordthrow.network.ThrowStatePayload;
 import java.nio.file.Path;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import io.github.derkottersberg.swordthrow.network.ThrowActionPayload;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -23,15 +25,16 @@ final class SwordThrowForgeClient {
     }
 
     static void initialize(FMLJavaModLoadingContext context) {
-        RegisterKeyMappingsEvent.BUS.addListener(event -> event.register(SwordThrowKeyMappings.THROW));
+        context.getModEventBus().addListener((RegisterKeyMappingsEvent event) -> event.register(SwordThrowKeyMappings.THROW));
         SwordThrowClient.initialize(new ForgeClientPlatformServices());
-        EntityRenderersEvent.RegisterRenderers.BUS.addListener(event ->
+        context.getModEventBus().addListener((EntityRenderersEvent.RegisterRenderers event) ->
             event.registerEntityRenderer(ModEntities.thrownSword(), ThrownSwordRenderer::new));
-        TickEvent.ClientTickEvent.Post.BUS.addListener(event ->
-            SwordThrowClient.tick(Minecraft.getInstance()));
-        context.getContainer().registerExtensionPoint(
+        MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent event) -> {
+            if (event.phase == TickEvent.Phase.END) SwordThrowClient.tick(Minecraft.getInstance());
+        });
+        ModLoadingContext.get().registerExtensionPoint(
             ConfigScreenHandler.ConfigScreenFactory.class,
-            () -> new ConfigScreenHandler.ConfigScreenFactory(SwordThrowConfigScreen::new)
+            () -> new ConfigScreenHandler.ConfigScreenFactory((client, parent) -> new SwordThrowConfigScreen(parent))
         );
     }
 
@@ -56,7 +59,7 @@ final class SwordThrowForgeClient {
         }
 
         @Override
-        public void sendToServer(CustomPacketPayload payload) {
+        public void sendToServer(ThrowActionPayload payload) {
             SwordThrowForge.sendToServer(payload);
         }
     }

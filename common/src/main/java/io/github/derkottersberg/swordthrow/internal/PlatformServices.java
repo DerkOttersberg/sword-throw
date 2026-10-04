@@ -4,7 +4,8 @@ import java.nio.file.Path;
 import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import io.github.derkottersberg.swordthrow.network.ThrowStatePayload;
+import io.github.derkottersberg.swordthrow.network.ThrowActionPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -25,13 +26,13 @@ public interface PlatformServices {
         Supplier<EntityType<T>> factory
     );
 
-    int getEnchantmentLevel(ItemStack stack, Holder<Enchantment> enchantment);
+    int getEnchantmentLevel(ItemStack stack, Enchantment enchantment);
 
     SoundType getSoundType(BlockState state, LevelReader level, BlockPos pos, Entity entity);
 
-    void sendToPlayer(ServerPlayer target, CustomPacketPayload payload);
+    void sendToPlayer(ServerPlayer target, ThrowStatePayload payload);
 
-    void sendToTrackingAndSelf(ServerPlayer source, CustomPacketPayload payload);
+    void sendToTrackingAndSelf(ServerPlayer source, ThrowStatePayload payload);
 
     @FunctionalInterface
     interface RegistryHandle<T> extends Supplier<T> {

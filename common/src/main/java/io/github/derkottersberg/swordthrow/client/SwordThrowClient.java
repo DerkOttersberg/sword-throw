@@ -9,7 +9,7 @@ import io.github.derkottersberg.swordthrow.network.ThrowStatePayload;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -67,9 +67,9 @@ public final class SwordThrowClient {
 
         KeyMapping throwKey = requireServices().throwKeyMapping();
         ItemStack heldStack = client.player.getMainHandItem();
-        boolean keyDown = throwKey.isDown() && client.gui.screen() == null;
+        boolean keyDown = throwKey.isDown() && client.screen == null;
         boolean canThrowHeldItem = SwordThrow.canThrow(heldStack)
-            && !client.player.getCooldowns().isOnCooldown(heldStack);
+            && !client.player.getCooldowns().isOnCooldown(heldStack.getItem());
 
         if (!keyDown) {
             serverRejectedUntilKeyRelease = false;
@@ -102,7 +102,7 @@ public final class SwordThrowClient {
             return;
         }
 
-        if (client.gui.screen() != null || !canThrowHeldItem) {
+        if (client.screen != null || !canThrowHeldItem) {
             cancelCharge(true);
             return;
         }
@@ -131,7 +131,7 @@ public final class SwordThrowClient {
         REMOTE_POSES.apply(payload, clientTicks);
     }
 
-    public static void renderChargeBar(GuiGraphicsExtractor graphics) {
+    public static void renderChargeBar(GuiGraphics graphics) {
         if (!charging) {
             return;
         }
@@ -153,7 +153,7 @@ public final class SwordThrowClient {
     }
 
     public static boolean shouldInterceptDropKey(Minecraft client) {
-        if (client == null || services == null || client.player == null || client.gui.screen() != null) {
+        if (client == null || services == null || client.player == null || client.screen != null) {
             return false;
         }
         KeyMapping throwKey = services.throwKeyMapping();
@@ -163,7 +163,7 @@ public final class SwordThrowClient {
             && throwKey.same(client.options.keyDrop)
             && throwKey.isDown()
             && SwordThrow.canThrow(held)
-            && !client.player.getCooldowns().isOnCooldown(held);
+            && !client.player.getCooldowns().isOnCooldown(held.getItem());
     }
 
     public static boolean consumeSingleItemDropBypass() {
@@ -220,15 +220,15 @@ public final class SwordThrowClient {
 
     private static boolean sameChargingStack(ItemStack heldStack) {
         return heldStack.getCount() == chargingStack.getCount()
-            && ItemStack.isSameItemSameComponents(heldStack, chargingStack);
+            && ItemStack.isSameItemSameTags(heldStack, chargingStack);
     }
 
     private static void allowNormalSingleItemDrop(Minecraft client) {
-        if (client.player == null || client.gameMode == null || client.gui.screen() != null) {
+        if (client.player == null || client.gameMode == null || client.screen != null) {
             return;
         }
         allowNextSingleItemDrop = true;
-        client.gameMode.dropItem(client.player, false);
+        client.player.drop(false);
     }
 
     private static void cancelCharge(boolean tellServer) {

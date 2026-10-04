@@ -22,7 +22,7 @@ gradle.beforeProject { project ->
 }
 
 rootProject.name = 'sword-throw'
-include 'common', 'fabric', 'forge', 'neoforge'
+include 'common', 'fabric', 'forge'
 
 // Seamless API stays an independent source composite and is never shaded.
 includeBuild('../seamless-api')

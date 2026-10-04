@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 public final class SwordThrow {
     public static final String MOD_ID = "swordthrow";
-    public static final String VERSION = "2.1.1+mc26.3";
+    public static final String VERSION = "2.1.1+mc1.20.1";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     private static final int POSE_HEARTBEAT_TICKS = 10;
 
@@ -55,7 +55,7 @@ public final class SwordThrow {
         LOGGER.info("Sword Throw {} initialized on {}", VERSION, services.loaderName());
     }
 
-    public static int getEnchantmentLevel(ItemStack stack, Holder<Enchantment> enchantment) {
+    public static int getEnchantmentLevel(ItemStack stack, Enchantment enchantment) {
         return requirePlatformServices().getEnchantmentLevel(stack, enchantment);
     }
 
@@ -68,8 +68,8 @@ public final class SwordThrow {
         return requirePlatformServices().getSoundType(state, level, pos, entity);
     }
 
-    public static Identifier id(String path) {
-        return Identifier.fromNamespaceAndPath(MOD_ID, path);
+    public static ResourceLocation id(String path) {
+        return new ResourceLocation(MOD_ID, path);
     }
 
     public static void handleThrowAction(ServerPlayer player, ThrowActionPayload payload) {
@@ -187,7 +187,7 @@ public final class SwordThrow {
 
         ItemStack held = player.getMainHandItem();
         if (held.getCount() != session.stackCount()
-            || !ItemStack.isSameItemSameComponents(held, session.stackSnapshot())) {
+            || !ItemStack.isSameItemSameTags(held, session.stackSnapshot())) {
             broadcastPoseState(player, ThrowStatePayload.cancel(player.getId()));
             return;
         }
@@ -211,7 +211,7 @@ public final class SwordThrow {
 
         // Do not remove the player's item unless the entity was accepted by the level.
         if (!player.level().addFreshEntity(projectile)) {
-            LOGGER.warn("Rejected thrown-item spawn for {}", player.getGameProfile().name());
+            LOGGER.warn("Rejected thrown-item spawn for {}", player.getGameProfile().getName());
             broadcastPoseState(player, ThrowStatePayload.cancel(player.getId()));
             return;
         }
@@ -222,7 +222,7 @@ public final class SwordThrow {
 
         float chargeProgress = ChargeMath.progress(chargeTicks);
         playThrowSound(player, projectile, chargeProgress);
-        player.getCooldowns().addCooldown(thrownStack, ChargeMath.cooldown(chargeTicks));
+        player.getCooldowns().addCooldown(thrownStack.getItem(), ChargeMath.cooldown(chargeTicks));
         broadcastPoseState(player, ThrowStatePayload.release(player.getId(), chargeTicks));
     }
 
@@ -232,7 +232,7 @@ public final class SwordThrow {
         }
 
         ItemStack held = player.getMainHandItem();
-        return canThrow(held) && !player.getCooldowns().isOnCooldown(held);
+        return canThrow(held) && !player.getCooldowns().isOnCooldown(held.getItem());
     }
 
     public static boolean canThrow(ItemStack stack) {
@@ -248,7 +248,7 @@ public final class SwordThrow {
         }
         ItemStack held = player.getMainHandItem();
         return held.getCount() == session.stackCount()
-            && ItemStack.isSameItemSameComponents(held, session.stackSnapshot());
+            && ItemStack.isSameItemSameTags(held, session.stackSnapshot());
     }
 
     private static int currentServerTick(ServerPlayer player) {

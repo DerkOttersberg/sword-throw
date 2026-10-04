@@ -1,70 +1,62 @@
 package io.github.derkottersberg.swordthrow.forge.gametest;
 
 import io.github.derkottersberg.swordthrow.gametest.SwordThrowGameTestScenario;
-import java.util.Map;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.resources.Identifier;
-import net.minecraft.core.registries.Registries;
-import net.minecraftforge.eventbus.api.bus.BusGroup;
-import net.minecraftforge.gametest.ForgeGameTestHooks;
-import net.minecraftforge.gametest.GameTest;
-import net.minecraftforge.gametest.GameTestDontPrefix;
-import net.minecraftforge.gametest.GameTestNamespace;
-import net.minecraftforge.registries.RegisterEvent;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
-@GameTestNamespace("swordthrow")
-@GameTestDontPrefix
+@GameTestHolder("swordthrow")
+@PrefixGameTestTemplate(false)
 public final class SwordThrowForgeGameTests {
-    private static final Map<Identifier, ForgeGameTestHooks.TestReference> TESTS =
-        ForgeGameTestHooks.gatherTests(SwordThrowForgeGameTests.class, null);
-
-    private SwordThrowForgeGameTests() {
+    static {
+        // A packet-capable in-process player: no client, desktop or network socket.
+        SwordThrowGameTestScenario.usePlayerFactory(helper -> {
+            var level = helper.getLevel();
+            var channel = new io.netty.channel.embedded.EmbeddedChannel();
+            var connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+            channel.pipeline().addLast("packet_handler", connection);
+            channel.pipeline().fireChannelActive();
+            channel.attr(io.netty.util.AttributeKey.<String>valueOf("fml:netversion"))
+                .set(net.minecraftforge.network.NetworkConstants.NETVERSION);
+            var player = new net.minecraft.server.level.ServerPlayer(level.getServer(), level,
+                new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "Throw-QA"));
+            player.connection = new net.minecraft.server.network.ServerGamePacketListenerImpl(level.getServer(), connection, player);
+            return player;
+        });
     }
 
-    public static void register(BusGroup modBus) {
-        RegisterEvent.getBus(modBus).addListener(SwordThrowForgeGameTests::registerTestFunctions);
-    }
-
-    private static void registerTestFunctions(RegisterEvent event) {
-        if (event.getRegistryKey() != Registries.TEST_FUNCTION) {
-            return;
-        }
-        for (Map.Entry<Identifier, ForgeGameTestHooks.TestReference> entry : TESTS.entrySet()) {
-            event.register(Registries.TEST_FUNCTION, entry.getKey(), entry.getValue()::consumer);
-        }
-    }
-
-    @GameTest(name = "authoritative_throw", maxTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void authoritativeThrow(GameTestHelper helper) {
         SwordThrowGameTestScenario.validatesRulesCodecsAndAuthoritativeThrow(helper);
     }
 
-    @GameTest(name = "partial_charge_power_and_tap_safety", maxTicks = 50)
+    @GameTest(template = "empty", timeoutTicks = 50)
     public static void partialChargePowerAndTapSafety(GameTestHelper helper) {
         SwordThrowGameTestScenario.validatesPartialChargePowerAndTapSafety(helper);
     }
 
-    @GameTest(name = "changed_stack_rejected", maxTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void changedStackRejected(GameTestHelper helper) {
         SwordThrowGameTestScenario.rejectsChangedStack(helper);
     }
 
-    @GameTest(name = "missing_and_stale_sessions_rejected", maxTicks = 110)
+    @GameTest(template = "empty", timeoutTicks = 110)
     public static void missingAndStaleSessionsRejected(GameTestHelper helper) {
         SwordThrowGameTestScenario.rejectsMissingAndStaleSessions(helper);
     }
 
-    @GameTest(name = "duplicate_start_preserves_charge", maxTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void duplicateStartPreservesCharge(GameTestHelper helper) {
         SwordThrowGameTestScenario.duplicateStartDoesNotReset(helper);
     }
 
-    @GameTest(name = "configured_damage_and_tag_precedence", maxTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void configuredDamageAndTagPrecedence(GameTestHelper helper) {
         SwordThrowGameTestScenario.validatesConfiguredImpactDamageAndTagPrecedence(helper);
     }
 
-    @GameTest(name = "embedding_bounce_and_pickup", maxTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void embeddingBounceAndPickup(GameTestHelper helper) {
         SwordThrowGameTestScenario.validatesEmbeddingBounceAndComponentSafePickup(helper);
     }

@@ -1,26 +1,23 @@
 package io.github.derkottersberg.swordthrow.network;
 
 import io.github.derkottersberg.swordthrow.SwordThrow;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 
 /** Server-authoritative pose state broadcast to the thrower and tracking clients. */
-public record ThrowStatePayload(int playerEntityId, Phase phase, int chargeTicks)
-    implements CustomPacketPayload {
-    public static final Type<ThrowStatePayload> TYPE = new Type<>(SwordThrow.id("throw_state"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, ThrowStatePayload> STREAM_CODEC = StreamCodec.of(
-        (buffer, value) -> {
+public record ThrowStatePayload(int playerEntityId, Phase phase, int chargeTicks) {
+    public static final ResourceLocation ID = SwordThrow.id("throw_state");
+    public static final LegacyCodec STREAM_CODEC = new LegacyCodec();
+    public static final class LegacyCodec {
+        public void encode(FriendlyByteBuf buffer, ThrowStatePayload value) {
             buffer.writeVarInt(value.playerEntityId);
             buffer.writeByte(value.phase.ordinal());
             buffer.writeVarInt(value.chargeTicks);
-        },
-        buffer -> new ThrowStatePayload(
-            buffer.readVarInt(),
-            Phase.byOrdinal(buffer.readUnsignedByte()),
-            buffer.readVarInt()
-        )
-    );
+        }
+        public ThrowStatePayload decode(FriendlyByteBuf buffer) {
+            return new ThrowStatePayload(buffer.readVarInt(), Phase.byOrdinal(buffer.readUnsignedByte()), buffer.readVarInt());
+        }
+    }
 
     public ThrowStatePayload {
         if (phase == null) {
@@ -41,10 +38,6 @@ public record ThrowStatePayload(int playerEntityId, Phase phase, int chargeTicks
         return new ThrowStatePayload(playerEntityId, Phase.CANCEL, 0);
     }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
 
     public enum Phase {
         CHARGING,

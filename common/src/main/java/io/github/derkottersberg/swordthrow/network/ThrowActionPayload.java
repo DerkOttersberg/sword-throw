@@ -1,20 +1,22 @@
 package io.github.derkottersberg.swordthrow.network;
 
 import io.github.derkottersberg.swordthrow.SwordThrow;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 
 /** A charge lifecycle message. The server never treats the client tick count as authoritative. */
-public record ThrowActionPayload(Action action, int clientChargeTicks) implements CustomPacketPayload {
-    public static final Type<ThrowActionPayload> TYPE = new Type<>(SwordThrow.id("throw_action"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, ThrowActionPayload> STREAM_CODEC = StreamCodec.of(
-        (buffer, value) -> {
+public record ThrowActionPayload(Action action, int clientChargeTicks) {
+    public static final ResourceLocation ID = SwordThrow.id("throw_action");
+    public static final LegacyCodec STREAM_CODEC = new LegacyCodec();
+    public static final class LegacyCodec {
+        public void encode(FriendlyByteBuf buffer, ThrowActionPayload value) {
             buffer.writeByte(value.action.ordinal());
             buffer.writeVarInt(value.clientChargeTicks);
-        },
-        buffer -> new ThrowActionPayload(Action.byOrdinal(buffer.readUnsignedByte()), buffer.readVarInt())
-    );
+        }
+        public ThrowActionPayload decode(FriendlyByteBuf buffer) {
+            return new ThrowActionPayload(Action.byOrdinal(buffer.readUnsignedByte()), buffer.readVarInt());
+        }
+    }
 
     public ThrowActionPayload {
         if (action == null) {
@@ -34,10 +36,6 @@ public record ThrowActionPayload(Action action, int clientChargeTicks) implement
         return new ThrowActionPayload(Action.RELEASE, clientChargeTicks);
     }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
 
     public enum Action {
         START,

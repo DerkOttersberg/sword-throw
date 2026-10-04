@@ -1,7 +1,0 @@
-{
-  "type": "minecraft:function",
-  "environment": "minecraft:default",
-  "function": "swordthrow:configured_damage_and_tag_precedence",
-  "max_ticks": 40,
-  "structure": "forge:empty3x3x3"
-}

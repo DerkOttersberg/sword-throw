@@ -1,16 +1,17 @@
 # Sword Throw
 
-This is the `26.3` source branch. For Minecraft 26.2, use the `26.2` branch;
-all three modloaders are included in each version branch. Forge/NeoForge's
-pinned 26.3 loaders are upstream beta builds. See [REPOSITORY_WORKFLOW.md](REPOSITORY_WORKFLOW.md).
+This is the `1.20.1` source branch: **Fabric and Forge only**, with Java 17
+for Minecraft. The `26.2` and `26.3` branches remain separate; never mix their
+jars, worlds, or dependency checkouts with this line. See
+[REPOSITORY_WORKFLOW.md](REPOSITORY_WORKFLOW.md).
 
 Sword Throw lets you charge a configurable Throw Item key and launch nearly any held item as a physical projectile. Tagged swords, axes, and spears can embed in blocks; other items bounce, deal item-aware impact damage, and remain recoverable. The client adds synchronized first- and third-person throwing poses, a charge indicator, configurable trails, and embedded-item rendering.
 
 ## Supported release
 
-| Minecraft | Java | Fabric | Forge | NeoForge |
-|---|---:|---:|---:|---:|
-| 26.3 | 25 | 0.19.5 + Fabric API 0.161.x | 66.0.9 | 26.3.0.48-beta |
+| Minecraft | Java runtime | Fabric | Forge |
+|---|---:|---|---|
+| 1.20.1 | 17 | 0.19.5 + Fabric API 0.92.12 | 47.4.26 |
 
 [Seamless API](https://github.com/DerkOttersberg/seamless-api) 2.x is required and is not bundled into Sword Throw.
 
@@ -28,7 +29,7 @@ Four item tags provide stable compatibility hooks:
 
 - `swordthrow:throwable` explicitly opts an item in, including a vanilla trident.
 - `swordthrow:cannot_throw` opts an item out and always wins over `throwable`.
-- `swordthrow:spears` selects point-first rendering and spear damage; the default inherits Minecraft 26.3's `minecraft:spears` tag and retains `minecraft:trident` as a compatibility fallback.
+- `swordthrow:spears` selects point-first rendering and spear damage; the default optionally inherits `minecraft:spears` when supplied by a data pack and retains `minecraft:trident` as a compatibility fallback.
 - `swordthrow:embeddable` selects block embedding independently of damage classification; the default contains Minecraft swords, axes, and `swordthrow:spears`.
 
 Ordinary untagged items remain throwable for backward compatibility. Spear classification is tag-only; registry-name guesses such as `spear` or `javelin` are intentionally not used.
@@ -39,7 +40,7 @@ The first server start creates `config/swordthrow-server.json`. It exposes the c
 
 ## Development
 
-Clone `sword-throw` and `seamless-api` as sibling directories, then use Java 25 and the included Gradle wrapper:
+Clone `sword-throw` and `seamless-api` as sibling directories, then run Gradle on Java 25 with Java 17 toolchains:
 
 ```text
 minecraft-workspace/
@@ -51,25 +52,23 @@ minecraft-workspace/
 ./gradlew clean check build
 ./gradlew :fabric:runGameTest
 ./gradlew :forge:runGameTestServer
-./gradlew :neoforge:runGameTestServer
 ./gradlew :fabric:runClient
 ./gradlew :forge:runClient
-./gradlew :neoforge:runClient
 ```
 
-Loader jars are written to each loader module’s `build/libs` directory as `sword-throw-2.1.1+mc26.3-<loader>.jar`.
+Loader jars are written to each loader module’s `build/libs` directory as `sword-throw-2.1.1+mc1.20.1-<loader>.jar`.
 
 ## Project layout
 
 - `common`: loader-neutral gameplay, entity physics, configuration, rendering, mixins, payload contracts, and tests.
-- `fabric`, `forge`, `neoforge`: entrypoints, registry/network adapters, client events, metadata, and config-screen integration.
+- `fabric`, `forge`: entrypoints, registry/network adapters, client events, metadata, and config-screen integration.
 - `gradle/libs.versions.toml`: the only Minecraft, loader, API, and toolchain version source.
 
 See [PORTING.md](PORTING.md) before adding another Minecraft version or loader.
 
 ## Compatibility
 
-The mod ID remains `swordthrow`, the projectile registry ID remains `swordthrow:thrown_sword`, the C2S payload remains `swordthrow:throw_action`, and the client config remains `config/swordthrow-client.json`. Projectile NBT keys remain compatible; item registry identity, data components, enchantments, and represented stack count survive throws and save/reload.
+The mod ID remains `swordthrow`, the projectile registry ID remains `swordthrow:thrown_sword`, the C2S payload remains `swordthrow:throw_action`, and the client config remains `config/swordthrow-client.json`. Projectile NBT keys remain compatible; item registry identity, NBT data, enchantments, and represented stack count survive throws and save/reload.
 
 ## License
 

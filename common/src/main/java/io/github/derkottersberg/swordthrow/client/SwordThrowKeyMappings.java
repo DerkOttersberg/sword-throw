@@ -6,7 +6,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 
 /** Loader adapters register this mapping with their native client API. */
 public final class SwordThrowKeyMappings {
-    public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(SwordThrow.id("controls"));
+    public static final String CATEGORY = "key.categories.swordthrow.controls";
     public static final KeyMapping THROW = new KeyMapping(
         "key.swordthrow.throw",
         InputConstants.KEY_Q,

@@ -33,6 +33,7 @@ subprojects {
         options.release = libs.versions.java.get().toInteger()
     }
 
+    tasks.withType(JavaExec).configureEach { javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(libs.versions.java.get().toInteger()) } }
     tasks.withType(Test).configureEach { useJUnitPlatform() }
 
     publishing {
@@ -63,13 +64,13 @@ tasks.register('verifyCommonIsolation') {
     }
 }
 
-def loaderJarFiles = ['fabric', 'forge', 'neoforge'].collectEntries { loader ->
-    [(loader): project(":${loader}").tasks.named('jar', Jar).flatMap { it.archiveFile }]
+def loaderJarFiles = ['fabric', 'forge'].collectEntries { loader ->
+    [(loader): providers.provider { project(":${loader}").tasks.named('remapJar').get().archiveFile.get() }]
 }
 
 tasks.register('verifyLoaderJars') {
     group = 'verification'
-    dependsOn ':fabric:jar', ':forge:jar', ':neoforge:jar'
+    dependsOn ':fabric:remapJar', ':forge:remapJar'
     inputs.files(loaderJarFiles.values())
     doLast {
         def specifications = [
@@ -80,21 +81,11 @@ tasks.register('verifyLoaderJars') {
             forge: [
                 expected: 'META-INF/mods.toml',
                 forbidden: ['fabric.mod.json', 'META-INF/neoforge.mods.toml'],
-                loaderVersion: '[66,)',
+                loaderVersion: '[47,)',
                 dependencies: [
-                    forge: ['mandatory=true', 'versionRange="[66.0.9,67)"'],
-                    minecraft: ['mandatory=true', 'versionRange="[26.3,26.4)"'],
+                    forge: ['mandatory=true', 'versionRange="[47.1,48)"'],
+                    minecraft: ['mandatory=true', 'versionRange="[1.20.1,1.20.2)"'],
                     seamlessapi: ['mandatory=true', 'versionRange="[2.0.0,3.0.0)"']
-                ]
-            ],
-            neoforge: [
-                expected: 'META-INF/neoforge.mods.toml',
-                forbidden: ['fabric.mod.json', 'META-INF/mods.toml'],
-                loaderVersion: '[11,)',
-                dependencies: [
-                    neoforge: ['type="required"', 'versionRange="[26.3.0.48-beta,26.4)"'],
-                    minecraft: ['type="required"', 'versionRange="[26.3,26.4)"'],
-                    seamlessapi: ['type="required"', 'versionRange="[2.0.0,3.0.0)"']
                 ]
             ]
         ]
@@ -105,6 +96,13 @@ tasks.register('verifyLoaderJars') {
                 throw new GradleException("Unexpected artifact name ${archive.name}; expected ${expectedName}")
             }
             new java.util.zip.ZipFile(archive).withCloseable { zip ->
+                zip.entries().findAll { it.name.endsWith('.class') }.each { entry ->
+                    new DataInputStream(zip.getInputStream(entry)).withCloseable { header ->
+                        if (header.readInt() != -889275714) throw new GradleException("Invalid class: ${entry.name}")
+                        header.readUnsignedShort()
+                        if (header.readUnsignedShort() > 61) throw new GradleException("Not Java 17 bytecode: ${entry.name}")
+                    }
+                }
                 def metadataEntry = zip.getEntry(specification.expected)
                 if (metadataEntry == null) {
                     throw new GradleException("${archive.name} is missing ${specification.expected}")
@@ -123,9 +121,9 @@ tasks.register('verifyLoaderJars') {
                     }
                     def expectedDependencies = [
                         fabricloader: '>=0.19.5',
-                        'fabric-api': '>=0.161.0 <0.162.0',
-                        minecraft: '~26.3',
-                        java: '>=25',
+                        'fabric-api': '>=0.92.12 <0.93.0',
+                        minecraft: '1.20.1',
+                        java: '>=17',
                         seamlessapi: '>=2.0.0 <3.0.0'
                     ]
                     expectedDependencies.each { dependencyId, expectedRange ->
@@ -148,7 +146,7 @@ tasks.register('verifyLoaderJars') {
                         'modId="swordthrow"',
                         "version=\"${project.version}\"",
                         '[features.swordthrow]',
-                        'javaVersion="[25,)"'
+                        'javaVersion="[17,)"'
                     ]
                     requiredCoreValues.each { value ->
                         if (!metadata.contains(value)) {
@@ -188,10 +186,10 @@ tasks.register('verifyLoaderJars') {
                     'io/github/derkottersberg/swordthrow/config/SwordThrowServerConfig.class',
                     'io/github/derkottersberg/swordthrow/gameplay/ThrowItemRules.class',
                     'io/github/derkottersberg/swordthrow/network/ThrowStatePayload.class',
-                    'data/swordthrow/tags/item/throwable.json',
-                    'data/swordthrow/tags/item/cannot_throw.json',
-                    'data/swordthrow/tags/item/spears.json',
-                    'data/swordthrow/tags/item/embeddable.json'
+                    'data/swordthrow/tags/items/throwable.json',
+                    'data/swordthrow/tags/items/cannot_throw.json',
+                    'data/swordthrow/tags/items/spears.json',
+                    'data/swordthrow/tags/items/embeddable.json'
                 ].each { requiredEntry ->
                     if (zip.getEntry(requiredEntry) == null) {
                         throw new GradleException("${archive.name} is missing ${requiredEntry}")
@@ -203,8 +201,8 @@ tasks.register('verifyLoaderJars') {
                 }
                 [
                     'io/github/derkottersberg/swordthrow/config/SwordThrowGameTestConfigAccess.class',
-                    'data/swordthrow/tags/item/gametest_throwable.json',
-                    'data/swordthrow/tags/item/gametest_cannot_throw.json'
+                    'data/swordthrow/tags/items/gametest_throwable.json',
+                    'data/swordthrow/tags/items/gametest_cannot_throw.json'
                 ].each { testOnlyEntry ->
                     if (packagedEntries.contains(testOnlyEntry)) {
                         throw new GradleException("${archive.name} improperly ships ${testOnlyEntry}")

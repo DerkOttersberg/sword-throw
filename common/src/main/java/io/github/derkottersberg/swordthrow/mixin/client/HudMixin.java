@@ -1,20 +1,19 @@
 package io.github.derkottersberg.swordthrow.mixin.client;
 
 import io.github.derkottersberg.swordthrow.client.SwordThrowClient;
-import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Gui;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Hud.class)
+@Mixin(Gui.class)
 public abstract class HudMixin {
-    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    @Inject(method = "render", at = @At("TAIL"))
     private void swordthrow$extractChargeBar(
-        GuiGraphicsExtractor graphics,
-        DeltaTracker deltaTracker,
+        GuiGraphics graphics,
+        float partialTick,
         CallbackInfo callback
     ) {
         SwordThrowClient.renderChargeBar(graphics);

@@ -1,4 +1,4 @@
-plugins { id 'dev.architectury.loom-no-remap' }
+plugins { id 'dev.architectury.loom' }
 base { archivesName = rootProject.archives_base_name }
 
 sourceSets.main {
@@ -20,20 +20,21 @@ configurations {
     gametestRuntimeOnly.extendsFrom runtimeOnly
 }
 
-configurations.forgeRuntimeLibrary {
-    exclude group: 'dev.architectury', module: 'architectury-naming-service'
-    exclude group: 'dev.architectury', module: 'architectury-mixin-remapper-service'
-}
+apply from: rootProject.file('gradle/empty-gametest-structure.gradle')
+
+
 
 dependencies {
     minecraft libs.minecraft
+    mappings loom.officialMojangMappings()
     forge libs.forge
-    def seamlessApiForge = files(rootProject.file("../seamless-api/forge/build/libs/seamless-api-${libs.versions.seamless.api.get()}-forge.jar"))
+    def seamlessApiForge = files(rootProject.file("../seamless-api/forge/build/devlibs/seamless-api-${libs.versions.seamless.api.get()}-forge-dev.jar"))
     seamlessApiForge.builtBy gradle.includedBuild('seamless-api').task(':forge:jar')
     implementation seamlessApiForge
 }
 
 loom {
+    mixin { useLegacyMixinAp = true; defaultRefmapName = 'swordthrow.refmap.json' }
     mods {
         swordthrow {
             sourceSet sourceSets.main
@@ -46,14 +47,6 @@ loom {
             forgeTemplate 'gameTestServer'
             source sourceSets.gametest
             runDir 'build/gametest'
-            // Forge 65's template omits the mapping properties required by Loom's
-            // development services. Production code already uses official names, so
-            // an explicit identity mapping is sufficient.
-            def identityMappings = rootProject.file('gradle/official-named-empty.tiny').absolutePath
-            property 'architectury.naming.mappingsPath', identityMappings
-            property 'architectury.naming.sourceNamespace', 'official'
-            property 'architectury.mixinRemapper.mappingsPath', identityMappings
-            property 'architectury.mixinRemapper.sourceNamespace', 'official'
             property 'forge.enabledGameTestNamespaces', 'swordthrow'
         }
     }
@@ -63,7 +56,8 @@ tasks.named('runGameTestServer') {
     doLast {
         def logFile = layout.buildDirectory.file('gametest/logs/latest.log').get().asFile
         def match = logFile.exists() ? (logFile.text =~ /(\d+) tests are now running/) : null
-        if (match == null || !match.find() || match.group(1).toInteger() < 8) {
+        if (match == null || !match.find() || match.group(1).toInteger() < 7
+                || !logFile.text.contains('All 7 required tests passed')) {
             throw new GradleException('Forge GameTest run did not discover all seven Sword Throw scenarios')
         }
     }
@@ -72,9 +66,9 @@ tasks.named('check') { dependsOn tasks.named('runGameTestServer') }
 
 def metadataProperties = [
     mod_version: project.version.toString(),
-    loader_version_range: '[66,)',
-    forge_version_range: '[66.0.9,67)',
-    minecraft_version_range: '[26.3,26.4)'
+    loader_version_range: '[47,)',
+    forge_version_range: '[47.1,48)',
+    minecraft_version_range: '[1.20.1,1.20.2)'
 ]
 processResources {
     inputs.properties metadataProperties
@@ -90,10 +84,13 @@ tasks.named('jar', Jar) {
             'MixinConfigs': 'swordthrow.mixins.json'
         )
     }
-    archiveFileName = "${rootProject.archives_base_name}-${project.version}-forge.jar"
+    archiveFileName = "${rootProject.archives_base_name}-${project.version}-forge-dev.jar"
 }
 tasks.named('sourcesJar', Jar) {
     from project(':common').sourceSets.main.allSource
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName = "${rootProject.archives_base_name}-${project.version}-forge-sources.jar"
 }
+tasks.named('remapJar') { archiveFileName = "${rootProject.archives_base_name}-${project.version}-forge.jar" }
+
+tasks.named('remapSourcesJar') { archiveFileName = "${rootProject.archives_base_name}-${project.version}-forge-sources.jar" }

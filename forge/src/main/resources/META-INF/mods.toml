@@ -12,9 +12,6 @@ logoFile="assets/swordthrow/icon.png"
 authors="Derk Ottersberg"
 description='''Charge the drop key to throw held items as physical projectiles with impact damage, embedding, recovery, animation, and trails.'''
 
-[[mixins]]
-config="swordthrow.mixins.json"
-
 [[dependencies.swordthrow]]
 modId="forge"
 mandatory=true
@@ -23,7 +20,7 @@ ordering="NONE"
 side="BOTH"
 
 [features.swordthrow]
-javaVersion="[25,)"
+javaVersion="[17,)"
 
 [[dependencies.swordthrow]]
 modId="minecraft"

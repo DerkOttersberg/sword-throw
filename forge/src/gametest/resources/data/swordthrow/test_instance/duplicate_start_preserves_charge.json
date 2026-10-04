@@ -1,7 +1,0 @@
-{
-  "type": "minecraft:function",
-  "environment": "minecraft:default",
-  "function": "swordthrow:duplicate_start_preserves_charge",
-  "max_ticks": 40,
-  "structure": "forge:empty3x3x3"
-}

@@ -16,29 +16,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.state.EntityRenderState;
-import net.minecraft.client.renderer.item.ItemModelResolver;
-import net.minecraft.client.renderer.item.ItemStackRenderState;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
-import net.minecraft.util.LightCoordsUtil;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
-public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, ThrownSwordRenderer.ThrownSwordRenderState> {
-    private static final Identifier TRAIL_TEXTURE = SwordThrow.id("textures/effect/sword_trail.png");
-    private static final RenderType TRAIL_LAYER = RenderTypes.entityTranslucentEmissive(TRAIL_TEXTURE);
+public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity> {
+    private static final ResourceLocation TRAIL_TEXTURE = SwordThrow.id("textures/effect/sword_trail.png");
+    private static final RenderType TRAIL_LAYER = RenderType.entityTranslucent(TRAIL_TEXTURE);
     private static final float OUTER_TRAIL_WIDTH = 0.15F;
     private static final float INNER_TRAIL_WIDTH = OUTER_TRAIL_WIDTH / 1.5F;
     private static final int TRAIL_SUBDIVISIONS = 4;
@@ -47,24 +43,24 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
     private static final SpinTumbleAnimator SPIN_ANIMATOR = SpinTumbleAnimator.swordthrowDefaults();
     private static final Map<Integer, Integer> LAST_TWINKLE_AGE = new HashMap<>();
 
-    private final ItemModelResolver itemModelResolver;
+    private final ItemRenderer itemRenderer;
 
     public ThrownSwordRenderer(EntityRendererProvider.Context context) {
         super(context);
-        this.itemModelResolver = context.getItemModelResolver();
+        this.itemRenderer = context.getItemRenderer();
     }
 
     @Override
-    public ThrownSwordRenderState createRenderState() {
-        return new ThrownSwordRenderState();
+    public ResourceLocation getTextureLocation(ThrownSwordEntity entity) {
+        return TRAIL_TEXTURE;
     }
 
     @Override
-    public void extractRenderState(ThrownSwordEntity entity, ThrownSwordRenderState state, float partialTick) {
-        super.extractRenderState(entity, state, partialTick);
+    public void render(ThrownSwordEntity entity, float entityYaw, float partialTick, PoseStack poseStack,
+                       MultiBufferSource buffers, int packedLight) {
+        ThrownSwordRenderState state = new ThrownSwordRenderState();
         state.itemStack = entity.getItem().copy();
         state.partialTick = partialTick;
-        this.itemModelResolver.updateForNonLiving(state.item, entity.getItem(), ItemDisplayContext.FIXED, entity);
         state.deltaMovement = entity.getDeltaMovement();
         state.currentPos = entity.getPosition(partialTick);
         state.embedded = entity.isEmbedded();
@@ -82,19 +78,15 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
         state.trailColor = SwordThrowClientConfig.get().trailColor();
         state.trailPoints.clear();
         state.trailPoints.addAll(entity.getTrailPoints());
-    }
-
-    @Override
-    public void submit(ThrownSwordRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
-        if (state.item.isEmpty()) {
+        if (state.itemStack.isEmpty()) {
             return;
         }
 
         poseStack.pushPose();
 
         if (state.trailEnabled && !state.embedded && state.trailPoints.size() > 1) {
-            submitTrail(state, poseStack, collector, camera, OUTER_TRAIL_WIDTH, 0.95F);
-            submitTrail(state, poseStack, collector, camera, INNER_TRAIL_WIDTH, 0.63F);
+            submitTrail(state, poseStack, buffers, OUTER_TRAIL_WIDTH, 0.95F);
+            submitTrail(state, poseStack, buffers, INNER_TRAIL_WIDTH, 0.63F);
             spawnTrailTwinkle(state);
         }
 
@@ -108,15 +100,15 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
             ? state.renderPitch
             : (float)Math.toDegrees(Math.atan2(velocity.y, horizontalSpeed));
 
-        poseStack.rotate(Axis.YP.rotationDegrees(flightYaw + 90.0F));
+        poseStack.mulPose(Axis.YP.rotationDegrees(flightYaw + 90.0F));
 
         if (state.embedded) {
             float embeddedPitchBias = state.pointFirstFlight ? VISUAL_PROFILE.pointFirstPitchBias() : 0.0F;
-            poseStack.rotate(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + embeddedPitchBias));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + embeddedPitchBias));
         } else if (state.pointFirstFlight) {
-            poseStack.rotate(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + VISUAL_PROFILE.pointFirstPitchBias()));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + VISUAL_PROFILE.pointFirstPitchBias()));
         } else {
-            poseStack.rotate(Axis.ZP.rotationDegrees(-flightPitch + 90.0F));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(-flightPitch + 90.0F));
 
             SpinTumbleAnimator.Orientation orientation = SPIN_ANIMATOR.sample(
                 state.entityId,
@@ -124,22 +116,23 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
                 new SeamlessVec3(velocity.x, velocity.y, velocity.z),
                 state.partialTick
             );
-            poseStack.rotate(Axis.ZP.rotationDegrees(orientation.roll()));
-            poseStack.rotate(Axis.YP.rotationDegrees(orientation.tumbleYaw()));
-            poseStack.rotate(Axis.XP.rotationDegrees(orientation.tumblePitch()));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(orientation.roll()));
+            poseStack.mulPose(Axis.YP.rotationDegrees(orientation.tumbleYaw()));
+            poseStack.mulPose(Axis.XP.rotationDegrees(orientation.tumblePitch()));
         }
 
         if (state.embedded) {
-            poseStack.rotate(Axis.ZP.rotationDegrees(state.embeddedRoll));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(state.embeddedRoll));
         }
 
         float scale = VISUAL_PROFILE.resolveScale(isSmallThrownItem(state.itemStack()));
         poseStack.scale(scale, scale, scale);
 
-        state.item.submit(poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
+        this.itemRenderer.renderStatic(state.itemStack, ItemDisplayContext.FIXED, packedLight,
+            OverlayTexture.NO_OVERLAY, poseStack, buffers, entity.level(), entity.getId());
 
         poseStack.popPose();
-        super.submit(state, poseStack, collector, camera);
+        super.render(entity, entityYaw, partialTick, poseStack, buffers, packedLight);
     }
 
     private static void spawnTrailTwinkle(ThrownSwordRenderState state) {
@@ -173,8 +166,7 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
     private void submitTrail(
         ThrownSwordRenderState state,
         PoseStack poseStack,
-        SubmitNodeCollector collector,
-        CameraRenderState camera,
+        MultiBufferSource buffers,
         float width,
         float alphaScale
     ) {
@@ -183,10 +175,11 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
             return;
         }
 
-        Vec3 cameraPos = camera.pos;
+        Vec3 cameraPos = this.entityRenderDispatcher.camera.getPosition();
         Vec3 currentPos = state.currentPos;
         int color = state.trailColor;
-        collector.submitCustomGeometry(poseStack, TRAIL_LAYER, (pose, consumer) -> {
+        Pose pose = poseStack.last();
+        VertexConsumer consumer = buffers.getBuffer(TRAIL_LAYER);
             for (int index = 0; index < smoothed.size() - 1; index++) {
                 Vec3 start = smoothed.get(index);
                 Vec3 end = smoothed.get(index + 1);
@@ -194,7 +187,6 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
                 float progress1 = (index + 1) / (float)(smoothed.size() - 1);
                 emitTrailSegment(pose, consumer, cameraPos, currentPos, start, end, width, alphaScale, progress0, progress1, color);
             }
-        });
     }
 
     private static List<Vec3> getSmoothedTrailPoints(ThrownSwordRenderState state) {
@@ -272,47 +264,37 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
     }
 
     private static void putVertex(VertexConsumer consumer, Pose pose, Vec3 position, int color, int alpha, float u, float v) {
-        consumer.addVertex(pose.pose(), (float)position.x, (float)position.y, (float)position.z)
-            .setColor((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, alpha)
-            .setUv(u, v)
-            .setOverlay(OverlayTexture.NO_OVERLAY)
-            .setLight(LightCoordsUtil.FULL_BRIGHT)
-            .setNormal(pose, 0.0F, 1.0F, 0.0F);
+        consumer.vertex(pose.pose(), (float)position.x, (float)position.y, (float)position.z)
+            .color((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, alpha)
+            .uv(u, v)
+            .overlayCoords(OverlayTexture.NO_OVERLAY)
+            .uv2(LightTexture.FULL_BRIGHT)
+            .normal(pose.normal(), 0.0F, 1.0F, 0.0F)
+            .endVertex();
     }
 
     private static boolean isSmallThrownItem(ItemStack stack) {
-        if (stack.isEmpty()) {
-            return false;
-        }
-
-        ItemUseAnimation useAnim = stack.getUseAnimation();
-        if (useAnim == ItemUseAnimation.EAT || useAnim == ItemUseAnimation.DRINK) {
-            return true;
-        }
-
-        String itemPath = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
-        return VISUAL_PROFILE.isSmallItemPath(itemPath);
+        if (stack.isEmpty()) return false;
+        UseAnim useAnim = stack.getUseAnimation();
+        if (useAnim == UseAnim.EAT || useAnim == UseAnim.DRINK) return true;
+        return VISUAL_PROFILE.isSmallItemPath(BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath());
     }
 
-    public static final class ThrownSwordRenderState extends EntityRenderState {
-        public final ItemStackRenderState item = new ItemStackRenderState();
-        public final List<Vec3> trailPoints = new ArrayList<>();
-        public ItemStack itemStack = ItemStack.EMPTY;
-        public Vec3 currentPos = Vec3.ZERO;
-        public Vec3 deltaMovement = Vec3.ZERO;
-        public boolean embedded;
-        public boolean pointFirstFlight;
-        public float embeddedRoll;
-        public float renderYaw;
-        public float renderPitch;
-        public int entityId;
-        public int entityAge;
-        public boolean trailEnabled;
-        public int trailColor;
-        public float partialTick;
-
-        public ItemStack itemStack() {
-            return this.itemStack;
-        }
+    private static final class ThrownSwordRenderState {
+        final List<Vec3> trailPoints = new ArrayList<>();
+        ItemStack itemStack = ItemStack.EMPTY;
+        Vec3 currentPos = Vec3.ZERO;
+        Vec3 deltaMovement = Vec3.ZERO;
+        boolean embedded;
+        boolean pointFirstFlight;
+        float embeddedRoll;
+        float renderYaw;
+        float renderPitch;
+        int entityId;
+        int entityAge;
+        boolean trailEnabled;
+        int trailColor;
+        float partialTick;
+        ItemStack itemStack() { return itemStack; }
     }
 }

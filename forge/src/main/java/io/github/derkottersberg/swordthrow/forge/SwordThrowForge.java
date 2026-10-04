@@ -10,7 +10,13 @@ import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import java.util.Optional;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.simple.SimpleChannel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -27,9 +33,6 @@ import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.eventbus.api.bus.BusGroup;
-import net.minecraftforge.network.Channel;
-import net.minecraftforge.network.ChannelBuilder;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
@@ -37,82 +40,58 @@ import net.minecraftforge.registries.RegistryObject;
 @Mod(SwordThrow.MOD_ID)
 public final class SwordThrowForge {
     private static final String PROTOCOL_VERSION = "3";
-    private static final Channel<CustomPacketPayload> NETWORK = createNetwork();
-    private static final Channel<CustomPacketPayload> STATE_NETWORK = createStateNetwork();
+    private static final SimpleChannel NETWORK = createNetwork();
 
-    public SwordThrowForge(FMLJavaModLoadingContext context) {
-        registerDevelopmentGameTests(context.getModBusGroup());
+    public SwordThrowForge() {
+        FMLJavaModLoadingContext context = FMLJavaModLoadingContext.get();
         SwordThrow.initialize(new ForgePlatformServices(context));
-        PlayerEvent.PlayerLoggedOutEvent.BUS.addListener(event -> {
-            if (event.getEntity() instanceof ServerPlayer player) {
-                SwordThrow.clearCharge(player);
-            }
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> clear(event.getEntity()));
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.Clone event) -> {
+            clear(event.getOriginal());
+            clear(event.getEntity());
         });
-        PlayerEvent.Clone.BUS.addListener(event -> {
-            if (event.getOriginal() instanceof ServerPlayer original) {
-                SwordThrow.clearCharge(original);
-            }
-            if (event.getEntity() instanceof ServerPlayer replacement) {
-                SwordThrow.clearCharge(replacement);
-            }
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> clear(event.getEntity()));
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerRespawnEvent event) -> clear(event.getEntity()));
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.StartTracking event) -> {
+            if (event.getEntity() instanceof ServerPlayer observer) SwordThrow.syncActiveChargeTo(observer, event.getTarget());
         });
-        PlayerEvent.PlayerChangedDimensionEvent.BUS.addListener(event -> {
-            if (event.getEntity() instanceof ServerPlayer player) {
-                SwordThrow.clearCharge(player);
-            }
+        MinecraftForge.EVENT_BUS.addListener((TickEvent.ServerTickEvent event) -> {
+            if (event.phase == TickEvent.Phase.END) SwordThrow.tickServer(event.getServer());
         });
-        PlayerEvent.PlayerRespawnEvent.BUS.addListener(event -> {
-            if (event.getEntity() instanceof ServerPlayer player) {
-                SwordThrow.clearCharge(player);
-            }
-        });
-        PlayerEvent.StartTracking.BUS.addListener(event -> {
-            if (event.getEntity() instanceof ServerPlayer observer) {
-                SwordThrow.syncActiveChargeTo(observer, event.getTarget());
-            }
-        });
-        TickEvent.ServerTickEvent.Post.BUS.addListener(event -> SwordThrow.tickServer(event.server()));
-        ServerStoppedEvent.BUS.addListener(event -> SwordThrow.clearAllCharges());
-        if (FMLEnvironment.dist.isClient()) {
-            SwordThrowForgeClient.initialize(context);
-        }
+        MinecraftForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> SwordThrow.clearAllCharges());
+        if (FMLEnvironment.dist.isClient()) SwordThrowForgeClient.initialize(context);
     }
 
-    private static Channel<CustomPacketPayload> createNetwork() {
-        return ChannelBuilder.named(SwordThrow.id("network"))
-            .networkProtocolVersion(Integer.parseInt(PROTOCOL_VERSION))
-            .payloadChannel()
-            .play()
-            .serverbound()
-            .addMain(
-                ThrowActionPayload.TYPE,
-                ThrowActionPayload.STREAM_CODEC,
-                (payload, context) -> {
-                    ServerPlayer sender = context.getSender();
-                    if (sender != null) {
-                        SwordThrow.handleThrowAction(sender, payload);
-                    }
-                }
-            )
-            .build();
+    private static void clear(net.minecraft.world.entity.player.Player player) {
+        if (player instanceof ServerPlayer serverPlayer) SwordThrow.clearCharge(serverPlayer);
     }
 
-    private static Channel<CustomPacketPayload> createStateNetwork() {
-        return ChannelBuilder.named(SwordThrow.id("state_network"))
-            .networkProtocolVersion(Integer.parseInt(PROTOCOL_VERSION))
-            .payloadChannel()
-            .play()
-            .clientbound()
-            .addMain(
-                ThrowStatePayload.TYPE,
-                ThrowStatePayload.STREAM_CODEC,
-                (payload, context) -> SwordThrowForgeClient.handleThrowState(payload)
-            )
-            .build();
+    private static SimpleChannel createNetwork() {
+        SimpleChannel channel = NetworkRegistry.newSimpleChannel(SwordThrow.id("network"),
+            () -> PROTOCOL_VERSION, PROTOCOL_VERSION::equals, PROTOCOL_VERSION::equals);
+        channel.registerMessage(0, ThrowActionPayload.class,
+            (payload, buffer) -> ThrowActionPayload.STREAM_CODEC.encode(buffer, payload),
+            ThrowActionPayload.STREAM_CODEC::decode, (payload, supplier) -> {
+                var context = supplier.get();
+                context.enqueueWork(() -> {
+                    ServerPlayer player = context.getSender();
+                    if (player != null) SwordThrow.handleThrowAction(player, payload);
+                });
+                context.setPacketHandled(true);
+            }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        channel.registerMessage(1, ThrowStatePayload.class,
+            (payload, buffer) -> ThrowStatePayload.STREAM_CODEC.encode(buffer, payload),
+            ThrowStatePayload.STREAM_CODEC::decode, (payload, supplier) -> {
+                var context = supplier.get();
+                context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                    () -> () -> SwordThrowForgeClient.handleThrowState(payload)));
+                context.setPacketHandled(true);
+            }, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        return channel;
     }
 
-    static void sendToServer(CustomPacketPayload payload) {
-        NETWORK.send(payload, PacketDistributor.SERVER.noArg());
+    static void sendToServer(ThrowActionPayload payload) {
+        NETWORK.sendToServer(payload);
     }
 
     private static final class ForgePlatformServices implements PlatformServices {
@@ -120,7 +99,7 @@ public final class SwordThrowForge {
             DeferredRegister.create(Registries.ENTITY_TYPE, SwordThrow.MOD_ID);
 
         ForgePlatformServices(FMLJavaModLoadingContext context) {
-            entityTypes.register(context.getModBusGroup());
+            entityTypes.register(context.getModEventBus());
         }
 
         @Override
@@ -143,7 +122,7 @@ public final class SwordThrowForge {
         }
 
         @Override
-        public int getEnchantmentLevel(ItemStack stack, Holder<Enchantment> enchantment) {
+        public int getEnchantmentLevel(ItemStack stack, Enchantment enchantment) {
             return EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
         }
 
@@ -153,29 +132,16 @@ public final class SwordThrowForge {
         }
 
         @Override
-        public void sendToPlayer(ServerPlayer target, CustomPacketPayload payload) {
+        public void sendToPlayer(ServerPlayer target, ThrowStatePayload payload) {
             if (target.connection != null) {
-                STATE_NETWORK.send(payload, PacketDistributor.PLAYER.with(target));
+                NETWORK.send(PacketDistributor.PLAYER.with(() -> target), payload);
             }
         }
 
         @Override
-        public void sendToTrackingAndSelf(ServerPlayer source, CustomPacketPayload payload) {
-            STATE_NETWORK.send(payload, PacketDistributor.TRACKING_ENTITY_AND_SELF.with(source));
+        public void sendToTrackingAndSelf(ServerPlayer source, ThrowStatePayload payload) {
+            NETWORK.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> source), payload);
         }
     }
 
-    /** Register the source-set-only GameTests without shipping them in release jars. */
-    private static void registerDevelopmentGameTests(BusGroup modBus) {
-        try {
-            Class<?> bootstrap = Class.forName(
-                "io.github.derkottersberg.swordthrow.forge.gametest.SwordThrowForgeGameTests"
-            );
-            bootstrap.getMethod("register", BusGroup.class).invoke(null, modBus);
-        } catch (ClassNotFoundException ignored) {
-            // Expected in production jars and normal development launches.
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
-            throw new IllegalStateException("Could not register Sword Throw Forge GameTests", exception);
-        }
-    }
 }

@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -21,7 +21,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -35,12 +34,12 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class SwordThrowFabric implements ModInitializer {
     @Override
     public void onInitialize() {
-        PayloadTypeRegistry.serverboundPlay().register(ThrowActionPayload.TYPE, ThrowActionPayload.STREAM_CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(ThrowStatePayload.TYPE, ThrowStatePayload.STREAM_CODEC);
-        ServerPlayNetworking.registerGlobalReceiver(ThrowActionPayload.TYPE, (payload, context) ->
-            context.server().execute(() -> SwordThrow.handleThrowAction(context.player(), payload)));
+        ServerPlayNetworking.registerGlobalReceiver(ThrowActionPayload.ID, (server, player, handler, buffer, sender) -> {
+            ThrowActionPayload payload = ThrowActionPayload.STREAM_CODEC.decode(buffer);
+            server.execute(() -> SwordThrow.handleThrowAction(player, payload));
+        });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-            SwordThrow.clearCharge(handler.getPlayer()));
+            SwordThrow.clearCharge(handler.player));
         ServerEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
             if (entity instanceof ServerPlayer player) {
                 SwordThrow.clearCharge(player);
@@ -79,7 +78,7 @@ public final class SwordThrowFabric implements ModInitializer {
         }
 
         @Override
-        public int getEnchantmentLevel(ItemStack stack, Holder<Enchantment> enchantment) {
+        public int getEnchantmentLevel(ItemStack stack, Enchantment enchantment) {
             return EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
         }
 
@@ -89,14 +88,16 @@ public final class SwordThrowFabric implements ModInitializer {
         }
 
         @Override
-        public void sendToPlayer(ServerPlayer target, CustomPacketPayload payload) {
-            if (target.connection != null && ServerPlayNetworking.canSend(target, payload.type())) {
-                ServerPlayNetworking.send(target, payload);
+        public void sendToPlayer(ServerPlayer target, ThrowStatePayload payload) {
+            if (target.connection != null && ServerPlayNetworking.canSend(target, ThrowStatePayload.ID)) {
+                var buffer = PacketByteBufs.create();
+                ThrowStatePayload.STREAM_CODEC.encode(buffer, payload);
+                ServerPlayNetworking.send(target, ThrowStatePayload.ID, buffer);
             }
         }
 
         @Override
-        public void sendToTrackingAndSelf(ServerPlayer source, CustomPacketPayload payload) {
+        public void sendToTrackingAndSelf(ServerPlayer source, ThrowStatePayload payload) {
             LinkedHashSet<ServerPlayer> recipients = new LinkedHashSet<>(PlayerLookup.tracking(source));
             recipients.add(source);
             for (ServerPlayer recipient : recipients) {

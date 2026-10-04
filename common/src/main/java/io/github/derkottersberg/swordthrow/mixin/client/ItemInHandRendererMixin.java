@@ -3,10 +3,9 @@ package io.github.derkottersberg.swordthrow.mixin.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import io.github.derkottersberg.swordthrow.client.ThrowPoseState;
 import io.github.derkottersberg.swordthrow.client.SwordThrowClient;
-import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
-import net.minecraft.client.renderer.state.level.PlayerRenderState;
-import net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderState;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemStack;
@@ -15,15 +14,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(FirstPersonHandsAndItemsRenderer.class)
+@Mixin(ItemInHandRenderer.class)
 public abstract class ItemInHandRendererMixin {
     @Inject(
-        method = "submitArmWithItem",
+        method = "renderArmWithItem",
         at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER)
     )
     private void swordthrow$applyThrowPose(
-        PlayerRenderState player,
-        FirstPersonHandsAndItemsRenderState hands,
+        AbstractClientPlayer player,
         float partialTick,
         float pitch,
         InteractionHand hand,
@@ -31,32 +29,31 @@ public abstract class ItemInHandRendererMixin {
         ItemStack item,
         float equipProgress,
         PoseStack poseStack,
-        SubmitNodeCollector collector,
+        MultiBufferSource buffers,
         int packedLight,
         CallbackInfo callback
     ) {
-        if (!player.hasPlayer || player.avatarRenderState == null || player.avatarRenderState.isInvisible) {
+        if (player.isInvisible()) {
             return;
         }
 
         if (hand == InteractionHand.MAIN_HAND && !item.isEmpty()) {
             SwordThrowClient.localPoseState().applyMainHandPose(
-                player.avatarRenderState.ageInTicks, player.avatarRenderState.mainArm, poseStack, partialTick);
+                player.tickCount + partialTick, player.getMainArm(), poseStack, partialTick);
             return;
         }
 
         ThrowPoseState poseState = SwordThrowClient.localPoseState();
         if (hand == InteractionHand.OFF_HAND && item.isEmpty() && poseState.isOffHandVisible()) {
-            HumanoidArm offArm = player.avatarRenderState.mainArm.getOpposite();
-            poseState.applyOffHandAimContext(player.avatarRenderState.ageInTicks, poseStack, offArm, partialTick);
+            HumanoidArm offArm = player.getMainArm().getOpposite();
+            poseState.applyOffHandAimContext(player.tickCount + partialTick, poseStack, offArm, partialTick);
             ((ItemInHandRendererAccessor) (Object) this).swordthrow$renderPlayerArm(
                 poseStack,
-                collector,
+                buffers,
                 packedLight,
                 0.0F,
                 swingProgress,
-                offArm,
-                player
+                offArm
             );
         }
     }
