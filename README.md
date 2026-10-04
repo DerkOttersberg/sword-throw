@@ -1,5 +1,8 @@
 # Sword Throw
 
+This is the `26.2` source branch. For Minecraft 26.3, use the `26.3` branch;
+each contains Fabric, Forge, and NeoForge. See [REPOSITORY_WORKFLOW.md](REPOSITORY_WORKFLOW.md).
+
 Sword Throw lets you charge a configurable Throw Item key and launch nearly any held item as a physical projectile. Tagged swords, axes, and spears can embed in blocks; other items bounce, deal item-aware impact damage, and remain recoverable. The client adds synchronized first- and third-person throwing poses, a charge indicator, configurable trails, and embedded-item rendering.
 
 ## Supported release
