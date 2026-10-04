@@ -108,15 +108,15 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
             ? state.renderPitch
             : (float)Math.toDegrees(Math.atan2(velocity.y, horizontalSpeed));
 
-        poseStack.mulPose(Axis.YP.rotationDegrees(flightYaw + 90.0F));
+        poseStack.rotate(Axis.YP.rotationDegrees(flightYaw + 90.0F));
 
         if (state.embedded) {
             float embeddedPitchBias = state.pointFirstFlight ? VISUAL_PROFILE.pointFirstPitchBias() : 0.0F;
-            poseStack.mulPose(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + embeddedPitchBias));
+            poseStack.rotate(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + embeddedPitchBias));
         } else if (state.pointFirstFlight) {
-            poseStack.mulPose(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + VISUAL_PROFILE.pointFirstPitchBias()));
+            poseStack.rotate(Axis.ZP.rotationDegrees(-flightPitch + 90.0F + VISUAL_PROFILE.pointFirstPitchBias()));
         } else {
-            poseStack.mulPose(Axis.ZP.rotationDegrees(-flightPitch + 90.0F));
+            poseStack.rotate(Axis.ZP.rotationDegrees(-flightPitch + 90.0F));
 
             SpinTumbleAnimator.Orientation orientation = SPIN_ANIMATOR.sample(
                 state.entityId,
@@ -124,13 +124,13 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity, Throw
                 new SeamlessVec3(velocity.x, velocity.y, velocity.z),
                 state.partialTick
             );
-            poseStack.mulPose(Axis.ZP.rotationDegrees(orientation.roll()));
-            poseStack.mulPose(Axis.YP.rotationDegrees(orientation.tumbleYaw()));
-            poseStack.mulPose(Axis.XP.rotationDegrees(orientation.tumblePitch()));
+            poseStack.rotate(Axis.ZP.rotationDegrees(orientation.roll()));
+            poseStack.rotate(Axis.YP.rotationDegrees(orientation.tumbleYaw()));
+            poseStack.rotate(Axis.XP.rotationDegrees(orientation.tumblePitch()));
         }
 
         if (state.embedded) {
-            poseStack.mulPose(Axis.ZP.rotationDegrees(state.embeddedRoll));
+            poseStack.rotate(Axis.ZP.rotationDegrees(state.embeddedRoll));
         }
 
         float scale = VISUAL_PROFILE.resolveScale(isSmallThrownItem(state.itemStack()));

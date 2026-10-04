@@ -1,12 +1,16 @@
 # Sword Throw
 
+This is the `26.3` source branch. For Minecraft 26.2, use the `26.2` branch;
+all three modloaders are included in each version branch. Forge/NeoForge's
+pinned 26.3 loaders are upstream beta builds. See [REPOSITORY_WORKFLOW.md](REPOSITORY_WORKFLOW.md).
+
 Sword Throw lets you charge a configurable Throw Item key and launch nearly any held item as a physical projectile. Tagged swords, axes, and spears can embed in blocks; other items bounce, deal item-aware impact damage, and remain recoverable. The client adds synchronized first- and third-person throwing poses, a charge indicator, configurable trails, and embedded-item rendering.
 
 ## Supported release
 
 | Minecraft | Java | Fabric | Forge | NeoForge |
 |---|---:|---:|---:|---:|
-| 26.2 | 25 | 0.19.3 + Fabric API 0.158.x–0.159.x | 65.1.3 | 26.2.0.75 |
+| 26.3 | 25 | 0.19.5 + Fabric API 0.161.x | 66.0.9 | 26.3.0.48-beta |
 
 [Seamless API](https://github.com/DerkOttersberg/seamless-api) 2.x is required and is not bundled into Sword Throw.
 
@@ -24,7 +28,7 @@ Four item tags provide stable compatibility hooks:
 
 - `swordthrow:throwable` explicitly opts an item in, including a vanilla trident.
 - `swordthrow:cannot_throw` opts an item out and always wins over `throwable`.
-- `swordthrow:spears` selects point-first rendering and spear damage; the default inherits Minecraft 26.2's `minecraft:spears` tag and retains `minecraft:trident` as a compatibility fallback.
+- `swordthrow:spears` selects point-first rendering and spear damage; the default inherits Minecraft 26.3's `minecraft:spears` tag and retains `minecraft:trident` as a compatibility fallback.
 - `swordthrow:embeddable` selects block embedding independently of damage classification; the default contains Minecraft swords, axes, and `swordthrow:spears`.
 
 Ordinary untagged items remain throwable for backward compatibility. Spear classification is tag-only; registry-name guesses such as `spear` or `javelin` are intentionally not used.
@@ -53,7 +57,7 @@ minecraft-workspace/
 ./gradlew :neoforge:runClient
 ```
 
-Loader jars are written to each loader module’s `build/libs` directory as `sword-throw-2.1.0+mc26.2-<loader>.jar`.
+Loader jars are written to each loader module’s `build/libs` directory as `sword-throw-2.1.1+mc26.3-<loader>.jar`.
 
 ## Project layout
 

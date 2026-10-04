@@ -19,13 +19,13 @@
   },
   "mixins": ["swordthrow.mixins.json"],
   "depends": {
-    "fabricloader": ">=0.19.3",
+    "fabricloader": ">=0.19.5",
     "fabric-api": "${fabric_api_range}",
-    "minecraft": "~26.2",
+    "minecraft": "~26.3",
     "java": ">=25",
     "seamlessapi": ">=2.0.0 <3.0.0"
   },
   "suggests": {
-    "modmenu": ">=20.0.1"
+    "modmenu": ">=21.0.0"
   }
 }

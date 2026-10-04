@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1+mc26.3
+
+- Adapt SDL-aware input, the new drop path, and extracted first-person render states. Preserve server-authoritative partial-charge throws, vanilla short-tap dropping, synchronized poses, and corrected sleeve parenting.
+- Minecraft 26.3 only, Java 25; Fabric, Forge, and NeoForge.
+- Forge 66.0.9 and NeoForge 26.3.0.48-beta are upstream beta loaders.
+- Existing 26.2 releases remain separate; no blanket 26.* compatibility.
+
 ## 2.1.0+mc26.2
 
 - Enabled partial-charge throws after a brief 2-tick hold; launch power, range, and velocity-based impact damage scale continuously up to the existing 30-tick maximum.

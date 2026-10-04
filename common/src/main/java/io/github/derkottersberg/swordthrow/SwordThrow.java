@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 public final class SwordThrow {
     public static final String MOD_ID = "swordthrow";
-    public static final String VERSION = "2.1.0+mc26.2";
+    public static final String VERSION = "2.1.1+mc26.3";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     private static final int POSE_HEARTBEAT_TICKS = 10;
 
