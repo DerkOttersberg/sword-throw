@@ -3,7 +3,9 @@ package io.github.derkottersberg.swordthrow.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
 
@@ -30,7 +32,7 @@ public final class ThrowPoseState {
     }
 
     public void setChargeProgress(float progress) {
-        chargeTarget = Mth.clamp(progress, 0.0F, 1.0F);
+        chargeTarget = finiteProgress(progress);
     }
 
     public void releaseForward() {
@@ -39,7 +41,7 @@ public final class ThrowPoseState {
 
     public void releaseForward(float authoritativeProgress) {
         releaseStartCharge = Math.max(
-            Mth.clamp(authoritativeProgress, 0.0F, 1.0F),
+            finiteProgress(authoritativeProgress),
             getChargeProgress(1.0F)
         );
         chargeTarget = 0.0F;
@@ -116,8 +118,23 @@ public final class ThrowPoseState {
         poseStack.mulPose(Axis.ZP.rotationDegrees(pose.offHandSide() * (-14.0F * hidden - 14.0F * extend + 2.5F * pose.offSwayRoll())));
     }
 
+    /** Called after vanilla setupAnim resets the model for this player and frame. */
+    public void applyThirdPersonPose(AvatarRenderState state, PlayerModel model) {
+        if (state.isSpectator || state.mainArm == null || !Float.isFinite(state.ageInTicks)) {
+            return;
+        }
+        applyThirdPersonMainHandPose(state.ageInTicks, state.mainArm, model.getArm(state.mainArm));
+        HumanoidArm offArm = state.mainArm.getOpposite();
+        applyThirdPersonOffHandPose(state.ageInTicks, offArm, model.getArm(offArm));
+
+        // Since 26.2, sleeves are children of the arms (with their own local pose).
+        // They inherit the animation once. Copying the parent transform into them
+        // applies it twice and also overrides vanilla skin-part visibility.
+        // Leave all child transforms, visibility, and skipDraw flags untouched.
+    }
+
     public void applyThirdPersonOffHandPose(float age, HumanoidArm offArmSide, ModelPart offArm) {
-        if (offArmSide == null) {
+        if (offArmSide == null || !Float.isFinite(age)) {
             return;
         }
 
@@ -139,7 +156,7 @@ public final class ThrowPoseState {
     }
 
     public void applyThirdPersonMainHandPose(float age, HumanoidArm mainArmSide, ModelPart mainArm) {
-        if (mainArmSide == null) {
+        if (mainArmSide == null || !Float.isFinite(age)) {
             return;
         }
 
@@ -179,6 +196,10 @@ public final class ThrowPoseState {
 
     private static float ease(float value) {
         return value * value * (3.0F - 2.0F * value);
+    }
+
+    private static float finiteProgress(float value) {
+        return Float.isFinite(value) ? Mth.clamp(value, 0.0F, 1.0F) : 0.0F;
     }
 
     private PoseSample sample(AbstractClientPlayer player, HumanoidArm mainArm, float tickDelta) {

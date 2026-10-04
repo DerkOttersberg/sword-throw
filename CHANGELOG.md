@@ -2,6 +2,8 @@
 
 ## 2.1.0+mc26.2
 
+- Fixed detached/double-rotated third-person sleeves: 26.2 sleeve children now inherit arm poses once, preserving skin visibility and local transforms on classic and slim skins.
+- Added model-level charge/release/cancel and shared-model reset regressions; invalid animation inputs can no longer propagate NaN into arm transforms.
 - Rebuilt visual settings with responsive pages, visible ARGB labels, full
   effect descriptions, and consistent draft/Reset/Cancel/Save behavior.
 - Clarified client-only visuals versus server damage tuning and key bindings.
