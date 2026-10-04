@@ -1,112 +1,45 @@
 package io.github.derkottersberg.swordthrow.client.config;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import io.github.derkottersberg.swordthrow.internal.client.SettingsScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-public final class SwordThrowConfigScreen extends Screen {
-    private final Screen parent;
-
-    private boolean thirdPersonAnimationsEnabled;
-    private boolean trailEffectEnabled;
-    private int trailColor;
-
-    private Button thirdPersonButton;
-    private Button trailButton;
-    private Button trailColorButton;
+public final class SwordThrowConfigScreen extends SettingsScreen {
+    private boolean animations, trail;
+    private int color;
 
     public SwordThrowConfigScreen(Screen parent) {
-        super(Component.literal("Sword Throw Settings"));
-        this.parent = parent;
+        super(parent, "Sword Throw Settings", "Visual effects on this client. Damage is controlled by the server.");
+        setDraft(SwordThrowClientConfig.get());
+    }
 
-        SwordThrowClientConfig.ConfigData data = SwordThrowClientConfig.get();
-        this.thirdPersonAnimationsEnabled = data.thirdPersonAnimationsEnabled();
-        this.trailEffectEnabled = data.trailEffectEnabled();
-        this.trailColor = data.trailColor();
+    private void setDraft(SwordThrowClientConfig.ConfigData data) {
+        this.animations = data.thirdPersonAnimationsEnabled();
+        this.trail = data.trailEffectEnabled();
+        this.color = data.trailColor();
     }
 
     @Override
-    protected void init() {
-        int centerX = this.width / 2;
-        int y = this.height / 4;
-
-        this.thirdPersonButton = Button.builder(getThirdPersonText(), button -> {
-            this.thirdPersonAnimationsEnabled = !this.thirdPersonAnimationsEnabled;
-            refreshLabels();
-        }).bounds(centerX - 110, y, 220, 20).build();
-        this.addRenderableWidget(this.thirdPersonButton);
-
-        this.trailButton = Button.builder(getTrailEffectText(), button -> {
-            this.trailEffectEnabled = !this.trailEffectEnabled;
-            refreshLabels();
-        }).bounds(centerX - 110, y + 24, 220, 20).build();
-        this.addRenderableWidget(this.trailButton);
-
-        this.trailColorButton = Button.builder(getTrailColorText(), button -> {
-            this.trailColor = SwordThrowClientConfig.nextTrailColor(this.trailColor);
-            refreshLabels();
-        }).bounds(centerX - 110, y + 48, 220, 20).build();
-        this.addRenderableWidget(this.trailColorButton);
-
-        this.addRenderableWidget(Button.builder(Component.literal("Done"), button -> saveAndClose())
-            .bounds(centerX - 110, y + 84, 108, 20)
-            .build());
-
-        this.addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> this.onClose())
-            .bounds(centerX + 2, y + 84, 108, 20)
-            .build());
+    protected void buildSettings() {
+        toggleSetting("Throw visuals", "Third-person animation", "Animate the player's throwing pose when viewed in third person. Does not change throw strength or damage.",
+            this.animations, v -> this.animations = v);
+        toggleSetting("Throw visuals", "Projectile trail", "Draw a colored trail behind thrown items. Disable for a cleaner view or fewer visual effects.",
+            this.trail, v -> this.trail = v);
+        actionSetting("Throw visuals", "Trail color", "Click to cycle through seven colors. Visible when projectile trails are enabled.",
+            SwordThrowClientConfig.colorLabel(this.color), button -> {
+                this.color = SwordThrowClientConfig.nextTrailColor(this.color);
+                button.setMessage(Component.literal(SwordThrowClientConfig.colorLabel(this.color)));
+            });
     }
 
     @Override
-    public void onClose() {
-        if (this.minecraft != null) {
-            this.minecraft.setScreenAndShow(this.parent);
-        }
+    protected void resetDraft() { setDraft(new SwordThrowClientConfig.ConfigData()); }
+
+    @Override
+    protected void saveDraft() {
+        SwordThrowClientConfig.set(new SwordThrowClientConfig.ConfigData(this.animations, this.trail, this.color));
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, this.width, this.height, 0xCC101014);
-        graphics.centeredText(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
-        graphics.centeredText(
-            this.font,
-            Component.literal("Configure throw visuals and animation behavior"),
-            this.width / 2,
-            36,
-            0xAFAFAF
-        );
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-    }
-
-    private void saveAndClose() {
-        SwordThrowClientConfig.set(new SwordThrowClientConfig.ConfigData(
-            this.thirdPersonAnimationsEnabled,
-            this.trailEffectEnabled,
-            this.trailColor
-        ));
-        onClose();
-    }
-
-    private void refreshLabels() {
-        this.thirdPersonButton.setMessage(getThirdPersonText());
-        this.trailButton.setMessage(getTrailEffectText());
-        this.trailColorButton.setMessage(getTrailColorText());
-    }
-
-    private Component getThirdPersonText() {
-        return Component.literal("Third-Person Animations: " + onOff(this.thirdPersonAnimationsEnabled));
-    }
-
-    private Component getTrailEffectText() {
-        return Component.literal("Trail Effect: " + onOff(this.trailEffectEnabled));
-    }
-
-    private Component getTrailColorText() {
-        return Component.literal("Trail Color: " + SwordThrowClientConfig.colorLabel(this.trailColor));
-    }
-
-    private static String onOff(boolean value) {
-        return value ? "ON" : "OFF";
-    }
+    protected String summary() { return "Throw key: Options > Controls. Damage tuning: swordthrow-server.json."; }
 }

@@ -2,6 +2,10 @@
 
 ## 2.1.0+mc26.2
 
+- Rebuilt visual settings with responsive pages, visible ARGB labels, full
+  effect descriptions, and consistent draft/Reset/Cancel/Save behavior.
+- Clarified client-only visuals versus server damage tuning and key bindings.
+- Verified the existing Mods-menu icon remains present on all three loaders.
 - Added server-authoritative charge, release, and cancellation pose synchronization for the thrower and remote players, with immediate late-tracker snapshots, heartbeats, and lifecycle cleanup.
 - Replaced global client pose state with independent per-player timelines and added two-player release/cancel, timeout, and unloaded-entity tests.
 - Added `throwable`, `cannot_throw`, `spears`, and `embeddable` item tags. Explicit denial wins, broad untagged-item compatibility remains, spear-name heuristics were removed, and the default spear set inherits Minecraft 26.2's native spears while retaining trident compatibility.
