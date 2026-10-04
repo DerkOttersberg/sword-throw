@@ -4,9 +4,21 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
+    groups:
+      minecraft-toolchain:
+        patterns: ['*']
+    # A new Minecraft line is a deliberate port, not a dependency-only PR.
+    ignore:
+      - dependency-name: net.fabricmc.fabric-api:fabric-api
+      - dependency-name: net.minecraftforge:forge
+      - dependency-name: net.neoforged:neoforge
+      - dependency-name: com.mojang:minecraft
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ['*']
