@@ -72,9 +72,9 @@ public final class SwordThrowGameTestScenario {
 
         ServerPlayer player = makePlayerInTest(helper);
         ItemStack originalStack = new ItemStack(Items.DIAMOND_SWORD, 3);
-        originalStack.setHoverName(Component.literal("Conserved throw"));
+        originalStack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Conserved throw"));
         originalStack.enchant(
-            Enchantments.UNBREAKING,
+            helper.getLevel().registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.UNBREAKING),
             2
         );
         player.setItemInHand(InteractionHand.MAIN_HAND, originalStack.copy());
@@ -87,7 +87,7 @@ public final class SwordThrowGameTestScenario {
             helper.assertTrue(player.getMainHandItem().isEmpty(), "The spawned projectile did not receive the held stack");
             helper.assertTrue(java.util.Objects.equals(BuiltInRegistries.ITEM.getKey(projectile.getItem().getItem()), BuiltInRegistries.ITEM.getKey(originalStack.getItem())), "The projectile changed the thrown item's registry ID");
             helper.assertTrue(
-                ItemStack.isSameItemSameTags(projectile.getItem(), originalStack),
+                ItemStack.isSameItemSameComponents(projectile.getItem(), originalStack),
                 "The projectile did not preserve all item components and enchantments"
             );
             helper.assertTrue(java.util.Objects.equals(projectile.getThrownStackCount(), originalStack.getCount()), "The projectile did not preserve the represented stack count");
@@ -99,10 +99,11 @@ public final class SwordThrowGameTestScenario {
             ThrownSwordEntity reloaded = saveAndReload(helper, projectile);
             helper.assertTrue(reloaded != null, "The thrown entity did not reload from its preserved registry ID");
             helper.assertTrue(
-                ItemStack.isSameItemSameTags(reloaded.getItem(), originalStack),
+                ItemStack.isSameItemSameComponents(reloaded.getItem(), originalStack),
                 "Save/reload changed the thrown item's components or enchantments"
             );
             helper.assertTrue(java.util.Objects.equals(reloaded.getThrownStackCount(), originalStack.getCount()), "Save/reload changed the represented stack count");
+            verifiesLegacyProjectileItem(helper, projectile, originalStack);
             helper.succeed();
         });
     }
@@ -209,7 +210,7 @@ public final class SwordThrowGameTestScenario {
     public static void rejectsMissingAndStaleSessions(GameTestHelper helper) {
         ServerPlayer stalePlayer = makePlayerInTest(helper, 1);
         ItemStack staleStack = new ItemStack(Items.IRON_AXE);
-        staleStack.setHoverName(Component.literal("Stale session must conserve me"));
+        staleStack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Stale session must conserve me"));
         stalePlayer.setItemInHand(InteractionHand.MAIN_HAND, staleStack.copy());
         SwordThrow.handleThrowAction(stalePlayer, ThrowActionPayload.start());
 
@@ -223,7 +224,7 @@ public final class SwordThrowGameTestScenario {
 
             ServerPlayer missingPlayer = makePlayerInTest(helper, 2);
             ItemStack missingStack = new ItemStack(Items.DIAMOND_PICKAXE);
-            missingStack.setHoverName(Component.literal("Missing session must conserve me"));
+            missingStack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Missing session must conserve me"));
             missingPlayer.setItemInHand(InteractionHand.MAIN_HAND, missingStack.copy());
             SwordThrow.handleThrowAction(missingPlayer, ThrowActionPayload.release(ChargeMath.MAX_CHARGE_TICKS));
             helper.assertTrue(
@@ -347,9 +348,9 @@ public final class SwordThrowGameTestScenario {
         ServerPlayer picker = makePlayerInTest(helper, 1);
 
         ItemStack embeddedStack = new ItemStack(Items.TRIDENT);
-        embeddedStack.setHoverName(Component.literal("Component-safe pickup"));
+        embeddedStack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Component-safe pickup"));
         embeddedStack.enchant(
-            Enchantments.UNBREAKING,
+            helper.getLevel().registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).getHolderOrThrow(Enchantments.UNBREAKING),
             3
         );
         TestThrownSwordEntity embedded = new TestThrownSwordEntity(helper.getLevel(), picker, embeddedStack);
@@ -359,7 +360,7 @@ public final class SwordThrowGameTestScenario {
         embedded.hitBlock(headOnHit);
         helper.assertTrue(embedded.isEmbedded(), "An embeddable spear bounced instead of embedding");
         helper.assertTrue(
-            ItemStack.isSameItemSameTags(embedded.getItem(), embeddedStack),
+            ItemStack.isSameItemSameComponents(embedded.getItem(), embeddedStack),
             "Embedding changed the projectile's item components"
         );
 
@@ -367,7 +368,7 @@ public final class SwordThrowGameTestScenario {
         ItemStack recovered = picker.getInventory()
             .items
             .stream()
-            .filter(stack -> ItemStack.isSameItemSameTags(stack, embeddedStack))
+            .filter(stack -> ItemStack.isSameItemSameComponents(stack, embeddedStack))
             .findFirst()
             .orElse(ItemStack.EMPTY);
         helper.assertTrue(!recovered.isEmpty(), "The player could not pick up the embedded projectile");
@@ -375,7 +376,7 @@ public final class SwordThrowGameTestScenario {
         helper.assertTrue(embedded.isRemoved(), "A fully picked-up projectile remained in the level");
 
         ItemStack bouncingStack = new ItemStack(Items.FEATHER);
-        bouncingStack.setHoverName(Component.literal("Component-safe bounce"));
+        bouncingStack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal("Component-safe bounce"));
         TestThrownSwordEntity bouncing = new TestThrownSwordEntity(helper.getLevel(), picker, bouncingStack);
         bouncing.setPos(westFace.add(-1.0D, 0.0D, 0.0D));
         bouncing.setDeltaMovement(new Vec3(1.0D, 0.0D, 0.0D));
@@ -385,7 +386,7 @@ public final class SwordThrowGameTestScenario {
         helper.assertTrue(!bouncing.isRemoved(), "A viable bounce discarded the projectile");
         helper.assertTrue(bouncing.getDeltaMovement().x < 0.0D, "The block impact did not reflect the projectile");
         helper.assertTrue(
-            ItemStack.isSameItemSameTags(bouncing.getItem(), bouncingStack),
+            ItemStack.isSameItemSameComponents(bouncing.getItem(), bouncingStack),
             "Bouncing changed the projectile's item components"
         );
         bouncing.discard();
@@ -411,6 +412,32 @@ public final class SwordThrowGameTestScenario {
             }
         }
         return null;
+    }
+
+    private static void verifiesLegacyProjectileItem(GameTestHelper helper, ThrownSwordEntity projectile, ItemStack expected) {
+        var saved = new CompoundTag();
+        projectile.save(saved);
+        var oldStack = new CompoundTag();
+        oldStack.putString("id", "minecraft:diamond_sword");
+        oldStack.putByte("Count", (byte) 1);
+        var oldTag = new CompoundTag();
+        var display = new CompoundTag();
+        display.putString("Name", "{\"text\":\"Conserved throw\"}");
+        oldTag.put("display", display);
+        var enchantments = new net.minecraft.nbt.ListTag();
+        var enchantment = new CompoundTag();
+        enchantment.putString("id", "minecraft:unbreaking");
+        enchantment.putShort("lvl", (short) 2);
+        enchantments.add(enchantment);
+        oldTag.put("Enchantments", enchantments);
+        oldStack.put("tag", oldTag);
+        saved.put("Item", oldStack);
+        Entity loaded = EntityType.loadEntityRecursive(saved, helper.getLevel(), entity -> entity);
+        helper.assertTrue(loaded instanceof ThrownSwordEntity, "Legacy projectile entity ID did not survive");
+        var migrated = (ThrownSwordEntity) loaded;
+        helper.assertTrue(ItemStack.isSameItemSameComponents(migrated.getItem(), expected),
+            "1.20.1 projectile lost its item, custom name or enchantments");
+        helper.assertTrue(migrated.getThrownStackCount() == 3, "Legacy projectile represented count changed");
     }
 
     private static ThrownSwordEntity saveAndReload(GameTestHelper helper, ThrownSwordEntity projectile) {

@@ -26,7 +26,7 @@ public interface PlatformServices {
         Supplier<EntityType<T>> factory
     );
 
-    int getEnchantmentLevel(ItemStack stack, Enchantment enchantment);
+    int getEnchantmentLevel(ItemStack stack, net.minecraft.core.Holder<Enchantment> enchantment);
 
     SoundType getSoundType(BlockState state, LevelReader level, BlockPos pos, Entity entity);
 

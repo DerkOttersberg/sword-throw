@@ -14,9 +14,10 @@ import java.util.Optional;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.ChannelBuilder;
+import net.minecraftforge.network.Channel;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.simple.SimpleChannel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -40,10 +41,9 @@ import net.minecraftforge.registries.RegistryObject;
 @Mod(SwordThrow.MOD_ID)
 public final class SwordThrowForge {
     private static final String PROTOCOL_VERSION = "3";
-    private static final SimpleChannel NETWORK = createNetwork();
+    private static final Channel<CustomPacketPayload> NETWORK = createNetwork();
 
-    public SwordThrowForge() {
-        FMLJavaModLoadingContext context = FMLJavaModLoadingContext.get();
+    public SwordThrowForge(FMLJavaModLoadingContext context) {
         SwordThrow.initialize(new ForgePlatformServices(context));
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> clear(event.getEntity()));
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.Clone event) -> {
@@ -66,32 +66,22 @@ public final class SwordThrowForge {
         if (player instanceof ServerPlayer serverPlayer) SwordThrow.clearCharge(serverPlayer);
     }
 
-    private static SimpleChannel createNetwork() {
-        SimpleChannel channel = NetworkRegistry.newSimpleChannel(SwordThrow.id("network"),
-            () -> PROTOCOL_VERSION, PROTOCOL_VERSION::equals, PROTOCOL_VERSION::equals);
-        channel.registerMessage(0, ThrowActionPayload.class,
-            (payload, buffer) -> ThrowActionPayload.STREAM_CODEC.encode(buffer, payload),
-            ThrowActionPayload.STREAM_CODEC::decode, (payload, supplier) -> {
-                var context = supplier.get();
-                context.enqueueWork(() -> {
-                    ServerPlayer player = context.getSender();
-                    if (player != null) SwordThrow.handleThrowAction(player, payload);
-                });
-                context.setPacketHandled(true);
-            }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        channel.registerMessage(1, ThrowStatePayload.class,
-            (payload, buffer) -> ThrowStatePayload.STREAM_CODEC.encode(buffer, payload),
-            ThrowStatePayload.STREAM_CODEC::decode, (payload, supplier) -> {
-                var context = supplier.get();
-                context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                    () -> () -> SwordThrowForgeClient.handleThrowState(payload)));
-                context.setPacketHandled(true);
-            }, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        return channel;
+    private static Channel<CustomPacketPayload> createNetwork() {
+        return ChannelBuilder.named(SwordThrow.id("network")).networkProtocolVersion(3)
+                .payloadChannel().play()
+                .serverbound(flow -> flow.addMain(ThrowActionPayload.ID, ThrowActionPayload.STREAM_CODEC.cast(),
+                        (payload, context) -> {
+                            ServerPlayer player = context.getSender();
+                            if (player != null) SwordThrow.handleThrowAction(player, payload);
+                        }))
+                .clientbound().addMain(ThrowStatePayload.ID, ThrowStatePayload.STREAM_CODEC.cast(),
+                        (payload, context) -> {
+                            if (context.isClientSide()) SwordThrowForgeClient.handleThrowState(payload);
+                        }).build();
     }
 
     static void sendToServer(ThrowActionPayload payload) {
-        NETWORK.sendToServer(payload);
+        NETWORK.send(payload, PacketDistributor.SERVER.noArg());
     }
 
     private static final class ForgePlatformServices implements PlatformServices {
@@ -122,7 +112,7 @@ public final class SwordThrowForge {
         }
 
         @Override
-        public int getEnchantmentLevel(ItemStack stack, Enchantment enchantment) {
+        public int getEnchantmentLevel(ItemStack stack, net.minecraft.core.Holder<Enchantment> enchantment) {
             return EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
         }
 
@@ -134,13 +124,13 @@ public final class SwordThrowForge {
         @Override
         public void sendToPlayer(ServerPlayer target, ThrowStatePayload payload) {
             if (target.connection != null) {
-                NETWORK.send(PacketDistributor.PLAYER.with(() -> target), payload);
+                NETWORK.send(payload, PacketDistributor.PLAYER.with(target));
             }
         }
 
         @Override
         public void sendToTrackingAndSelf(ServerPlayer source, ThrowStatePayload payload) {
-            NETWORK.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> source), payload);
+            NETWORK.send(payload, PacketDistributor.TRACKING_ENTITY_AND_SELF.with(source));
         }
     }
 

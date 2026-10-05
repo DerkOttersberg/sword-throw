@@ -131,7 +131,7 @@ public final class ThrowPoseState {
         HumanoidArm offArm = mainArm.getOpposite();
         applyThirdPersonOffHandPose(age, offArm, offArm == HumanoidArm.RIGHT ? model.rightArm : model.leftArm);
 
-        // In 1.20.1 sleeves are siblings, not arm children. Copy the final arm
+        // In 1.21.1 sleeves are siblings, not arm children. Copy the final arm
         // transforms once, after the throw pose, while preserving skin visibility.
         model.rightSleeve.copyFrom(model.rightArm);
         model.leftSleeve.copyFrom(model.leftArm);

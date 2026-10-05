@@ -53,7 +53,8 @@ tasks.named('check') { dependsOn tasks.named('runGameTest') }
 
 def metadataProperties = [
     version: project.version.toString(),
-    fabric_api_range: ">=${libs.versions.fabric.minimum.api.get()} <${libs.versions.fabric.maximum.api.exclusive.get()}"
+    fabric_api_range: ">=${libs.versions.fabric.minimum.api.get()} <${libs.versions.fabric.maximum.api.exclusive.get()}",
+    modmenu_range: ">=${libs.versions.modmenu.get()} <${libs.versions.modmenu.get().tokenize('.')[0].toInteger() + 1}.0.0"
 ]
 processResources {
     inputs.properties metadataProperties

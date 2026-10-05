@@ -1,75 +1,46 @@
-# Sword Throw
+# Throw Weapons
 
-This is the `1.20.1` source branch: **Fabric and Forge only**, with Java 17
-for Minecraft. The `26.2` and `26.3` branches remain separate; never mix their
-jars, worlds, or dependency checkouts with this line. See
-[REPOSITORY_WORKFLOW.md](REPOSITORY_WORKFLOW.md).
+Minecraft **1.21.1**, Java **21**; separate **Fabric, Forge and NeoForge** jars.
+Version `2.1.1+mc1.21.1`. Never mix these with 1.20.1 or 26.x binaries.
 
-Sword Throw lets you charge a configurable Throw Item key and launch nearly any held item as a physical projectile. Tagged swords, axes, and spears can embed in blocks; other items bounce, deal item-aware impact damage, and remain recoverable. The client adds synchronized first- and third-person throwing poses, a charge indicator, configurable trails, and embedded-item rendering.
+Charge the drop key to throw held weapons/items with partial-charge speed, impact, embedding, recovery and trails. A tap retains vanilla dropping. Requires matching SeamlessLib 2.x.
 
-## Supported release
+## Build and architecture
 
-| Minecraft | Java runtime | Fabric | Forge |
-|---|---:|---|---|
-| 1.20.1 | 17 | 0.19.5 + Fabric API 0.92.12 | 47.4.26 |
+`common` holds loader-neutral code, resources and tests; `fabric`, `forge`
+and `neoforge` explicitly inject their platform services. Architectury Loom
+is build tooling only, not a runtime API. Pins are in
+`gradle/libs.versions.toml`. Gameplay composite builds use a sibling
+`seamless-api` checkout for the matching Minecraft line; the library is not shaded.
 
-[Seamless API](https://github.com/DerkOttersberg/seamless-api) 2.x is required and is not bundled into Sword Throw.
-
-## Controls
-
-Hold the Throw Item key (`Q` by default) for at least 2 ticks (about 0.1 seconds at 20 TPS), then release it to throw the entire main-hand stack. You do not need full charge: longer holds smoothly increase launch speed, range, and velocity-based impact damage, reaching maximum power after 30 ticks (about 1.5 seconds). The charge bar is red before a throw is ready, blue for a ready partial throw, and gold only at full power.
-
-Its binding is separate from Drop Item, but upgrading from an older config copies the existing Drop Item binding once so established controls keep working. When both actions share a key, a shorter tap still drops one item and Ctrl+Drop still performs vanilla whole-stack dropping. A tap on a separately bound Throw Item key cancels without dropping anything. Vanilla tridents retain their vanilla behavior unless a data pack explicitly adds them to `swordthrow:throwable`.
-
-The server owns charge timing, validates that the exact held stack did not change, and removes the item only after the projectile was successfully spawned. Charge, release, and cancellation states are synchronized to the thrower and every tracking client, including players who begin tracking mid-charge.
-
-## Data-pack tags
-
-Four item tags provide stable compatibility hooks:
-
-- `swordthrow:throwable` explicitly opts an item in, including a vanilla trident.
-- `swordthrow:cannot_throw` opts an item out and always wins over `throwable`.
-- `swordthrow:spears` selects point-first rendering and spear damage; the default optionally inherits `minecraft:spears` when supplied by a data pack and retains `minecraft:trident` as a compatibility fallback.
-- `swordthrow:embeddable` selects block embedding independently of damage classification; the default contains Minecraft swords, axes, and `swordthrow:spears`.
-
-Ordinary untagged items remain throwable for backward compatibility. Spear classification is tag-only; registry-name guesses such as `spear` or `javelin` are intentionally not used.
-
-## Server damage configuration
-
-The first server start creates `config/swordthrow-server.json`. It exposes the complete impact formula: base hand damage; velocity base/factor; clean-flight, standard, spear, sword, axe, pickaxe, shovel/hoe, and generic damageable-item multipliers; category minimums; spear base/flat tuning; and block/miscellaneous base damage. Defaults reproduce the 2.0 balance. Invalid, negative, non-finite, or out-of-range fields are logged and individually reset to their defaults without discarding valid fields.
-
-## Development
-
-Clone `sword-throw` and `seamless-api` as sibling directories, then run Gradle on Java 25 with Java 17 toolchains:
+Run Gradle with Java 25 installed; source/game tasks use Java 21:
 
 ```text
-minecraft-workspace/
-├── seamless-api/
-└── sword-throw/
+gradlew.bat clean check build
 ```
 
-```bash
-./gradlew clean check build
-./gradlew :fabric:runGameTest
-./gradlew :forge:runGameTestServer
-./gradlew :fabric:runClient
-./gradlew :forge:runClient
-```
+Distribute only remapped
+`<loader>/build/libs/sword-throw-2.1.1+mc1.21.1-<loader>.jar`.
+Dev/QA jars are not release files. `check` runs common tests/isolation,
+applicable loader GameTests with discovery guards, and all-loader jar checks.
 
-Loader jars are written to each loader module’s `build/libs` directory as `sword-throw-2.1.1+mc1.20.1-<loader>.jar`.
+## Icons and settings
 
-## Project layout
+All loaders reference the current CurseForge project PNG, bundled locally.
+Source URLs and SHA-256 are in `gradle/icon-provenance.json`; do not replace
+this artwork by running historical SVG generators. Fabric gameplay settings
+use optional Mod Menu 11.0.5; Forge/NeoForge use native Mods-menu adapters.
+SeamlessLib is a library with no gameplay settings screen.
 
-- `common`: loader-neutral gameplay, entity physics, configuration, rendering, mixins, payload contracts, and tests.
-- `fabric`, `forge`: entrypoints, registry/network adapters, client events, metadata, and config-screen integration.
-- `gradle/libs.versions.toml`: the only Minecraft, loader, API, and toolchain version source.
+## Status and migration
 
-See [PORTING.md](PORTING.md) before adding another Minecraft version or loader.
-
-## Compatibility
-
-The mod ID remains `swordthrow`, the projectile registry ID remains `swordthrow:thrown_sword`, the C2S payload remains `swordthrow:throw_action`, and the client config remains `config/swordthrow-client.json`. Projectile NBT keys remain compatible; item registry identity, NBT data, enchantments, and represented stack count survive throws and save/reload.
+Local clean builds pass across the suite: 90 unit tests and 86 loader GameTests.
+Client/UI, multiplayer, packaged-server and optional-JEI acceptance is separate:
+see [.github/RELEASE_ACCEPTANCE.md](.github/RELEASE_ACCEPTANCE.md).
+Build success is not production readiness, a GitHub push or a CurseForge release.
+See [PORTING.md](PORTING.md) and [MIGRATION.md](MIGRATION.md).
+Upgrade only backup copies of worlds/configs.
 
 ## License
 
-Sword Throw retains its existing [CC0 1.0 Universal](LICENSE) license.
+Existing CC0-1.0 licensing is unchanged; see [LICENSE](LICENSE).

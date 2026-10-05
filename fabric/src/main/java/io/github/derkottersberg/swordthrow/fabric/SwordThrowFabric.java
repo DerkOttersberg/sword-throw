@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -34,10 +34,10 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class SwordThrowFabric implements ModInitializer {
     @Override
     public void onInitialize() {
-        ServerPlayNetworking.registerGlobalReceiver(ThrowActionPayload.ID, (server, player, handler, buffer, sender) -> {
-            ThrowActionPayload payload = ThrowActionPayload.STREAM_CODEC.decode(buffer);
-            server.execute(() -> SwordThrow.handleThrowAction(player, payload));
-        });
+        PayloadTypeRegistry.playC2S().register(ThrowActionPayload.ID, ThrowActionPayload.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(ThrowStatePayload.ID, ThrowStatePayload.STREAM_CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(ThrowActionPayload.ID, (payload, context) ->
+                SwordThrow.handleThrowAction(context.player(), payload));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
             SwordThrow.clearCharge(handler.player));
         ServerEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
@@ -78,7 +78,7 @@ public final class SwordThrowFabric implements ModInitializer {
         }
 
         @Override
-        public int getEnchantmentLevel(ItemStack stack, Enchantment enchantment) {
+        public int getEnchantmentLevel(ItemStack stack, net.minecraft.core.Holder<Enchantment> enchantment) {
             return EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
         }
 
@@ -90,9 +90,7 @@ public final class SwordThrowFabric implements ModInitializer {
         @Override
         public void sendToPlayer(ServerPlayer target, ThrowStatePayload payload) {
             if (target.connection != null && ServerPlayNetworking.canSend(target, ThrowStatePayload.ID)) {
-                var buffer = PacketByteBufs.create();
-                ThrowStatePayload.STREAM_CODEC.encode(buffer, payload);
-                ServerPlayNetworking.send(target, ThrowStatePayload.ID, buffer);
+                ServerPlayNetworking.send(target, payload);
             }
         }
 

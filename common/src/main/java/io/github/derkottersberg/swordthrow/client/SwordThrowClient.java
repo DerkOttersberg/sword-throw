@@ -220,7 +220,7 @@ public final class SwordThrowClient {
 
     private static boolean sameChargingStack(ItemStack heldStack) {
         return heldStack.getCount() == chargingStack.getCount()
-            && ItemStack.isSameItemSameTags(heldStack, chargingStack);
+            && ItemStack.isSameItemSameComponents(heldStack, chargingStack);
     }
 
     private static void allowNormalSingleItemDrop(Minecraft client) {

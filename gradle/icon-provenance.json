@@ -1,0 +1,12 @@
+{
+  "fabricId": "swordthrow",
+  "fmlId": "swordthrow",
+  "license": "CC0-1.0",
+  "commonClass": "io/github/derkottersberg/swordthrow/SwordThrow.class",
+  "asset": "assets/swordthrow/icon.png",
+  "sha256": "4693A97C04220A404001D433CBC599C913A3AF082A5D2F32ECE765846F6FABFF",
+  "curseforgeProjectId": 1496856,
+  "projectPage": "https://www.curseforge.com/minecraft/mc-mods/throw-weapons",
+  "source": "https://media.forgecdn.net/avatars/2092/522/639267338870429628.png",
+  "retrievedDate": "2026-10-05"
+}

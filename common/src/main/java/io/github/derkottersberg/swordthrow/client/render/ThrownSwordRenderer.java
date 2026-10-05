@@ -264,13 +264,12 @@ public class ThrownSwordRenderer extends EntityRenderer<ThrownSwordEntity> {
     }
 
     private static void putVertex(VertexConsumer consumer, Pose pose, Vec3 position, int color, int alpha, float u, float v) {
-        consumer.vertex(pose.pose(), (float)position.x, (float)position.y, (float)position.z)
-            .color((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, alpha)
-            .uv(u, v)
-            .overlayCoords(OverlayTexture.NO_OVERLAY)
-            .uv2(LightTexture.FULL_BRIGHT)
-            .normal(pose.normal(), 0.0F, 1.0F, 0.0F)
-            .endVertex();
+        consumer.addVertex(pose.pose(), (float)position.x, (float)position.y, (float)position.z)
+            .setColor((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, alpha)
+            .setUv(u, v)
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(LightTexture.FULL_BRIGHT)
+            .setNormal(pose, 0.0F, 1.0F, 0.0F);
     }
 
     private static boolean isSmallThrownItem(ItemStack stack) {

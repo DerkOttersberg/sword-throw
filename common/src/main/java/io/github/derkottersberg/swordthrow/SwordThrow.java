@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 public final class SwordThrow {
     public static final String MOD_ID = "swordthrow";
-    public static final String VERSION = "2.1.1+mc1.20.1";
+    public static final String VERSION = "2.1.1+mc1.21.1";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     private static final int POSE_HEARTBEAT_TICKS = 10;
 
@@ -55,7 +55,7 @@ public final class SwordThrow {
         LOGGER.info("Sword Throw {} initialized on {}", VERSION, services.loaderName());
     }
 
-    public static int getEnchantmentLevel(ItemStack stack, Enchantment enchantment) {
+    public static int getEnchantmentLevel(ItemStack stack, net.minecraft.core.Holder<Enchantment> enchantment) {
         return requirePlatformServices().getEnchantmentLevel(stack, enchantment);
     }
 
@@ -69,7 +69,7 @@ public final class SwordThrow {
     }
 
     public static ResourceLocation id(String path) {
-        return new ResourceLocation(MOD_ID, path);
+        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }
 
     public static void handleThrowAction(ServerPlayer player, ThrowActionPayload payload) {
@@ -187,7 +187,7 @@ public final class SwordThrow {
 
         ItemStack held = player.getMainHandItem();
         if (held.getCount() != session.stackCount()
-            || !ItemStack.isSameItemSameTags(held, session.stackSnapshot())) {
+            || !ItemStack.isSameItemSameComponents(held, session.stackSnapshot())) {
             broadcastPoseState(player, ThrowStatePayload.cancel(player.getId()));
             return;
         }
@@ -248,7 +248,7 @@ public final class SwordThrow {
         }
         ItemStack held = player.getMainHandItem();
         return held.getCount() == session.stackCount()
-            && ItemStack.isSameItemSameTags(held, session.stackSnapshot());
+            && ItemStack.isSameItemSameComponents(held, session.stackSnapshot());
     }
 
     private static int currentServerTick(ServerPlayer player) {

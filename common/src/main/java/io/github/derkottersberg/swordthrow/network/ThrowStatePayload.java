@@ -2,13 +2,14 @@ package io.github.derkottersberg.swordthrow.network;
 
 import io.github.derkottersberg.swordthrow.SwordThrow;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.codec.StreamCodec;
 
 /** Server-authoritative pose state broadcast to the thrower and tracking clients. */
-public record ThrowStatePayload(int playerEntityId, Phase phase, int chargeTicks) {
-    public static final ResourceLocation ID = SwordThrow.id("throw_state");
+public record ThrowStatePayload(int playerEntityId, Phase phase, int chargeTicks) implements CustomPacketPayload {
+    public static final Type<ThrowStatePayload> ID = new Type<>(SwordThrow.id("throw_state"));
     public static final LegacyCodec STREAM_CODEC = new LegacyCodec();
-    public static final class LegacyCodec {
+    public static final class LegacyCodec implements StreamCodec<FriendlyByteBuf, ThrowStatePayload> {
         public void encode(FriendlyByteBuf buffer, ThrowStatePayload value) {
             buffer.writeVarInt(value.playerEntityId);
             buffer.writeByte(value.phase.ordinal());
@@ -18,6 +19,9 @@ public record ThrowStatePayload(int playerEntityId, Phase phase, int chargeTicks
             return new ThrowStatePayload(buffer.readVarInt(), Phase.byOrdinal(buffer.readUnsignedByte()), buffer.readVarInt());
         }
     }
+
+    @Override
+    public Type<ThrowStatePayload> type() { return ID; }
 
     public ThrowStatePayload {
         if (phase == null) {

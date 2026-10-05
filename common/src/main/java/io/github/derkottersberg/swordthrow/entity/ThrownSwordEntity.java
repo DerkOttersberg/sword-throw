@@ -83,12 +83,12 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     @Override
-    protected void defineSynchedData() {
-        super.defineSynchedData();
-        this.entityData.define(DATA_EMBEDDED, false);
-        this.entityData.define(DATA_EMBEDDED_ROLL, 0.0F);
-        this.entityData.define(DATA_EMBEDDED_YAW, 0.0F);
-        this.entityData.define(DATA_EMBEDDED_PITCH, 0.0F);
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_EMBEDDED, false);
+        builder.define(DATA_EMBEDDED_ROLL, 0.0F);
+        builder.define(DATA_EMBEDDED_YAW, 0.0F);
+        builder.define(DATA_EMBEDDED_PITCH, 0.0F);
     }
 
     @Override
@@ -132,8 +132,8 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
     }
 
     @Override
-    protected float getGravity() {
-        return 0.06F;
+    protected double getDefaultGravity() {
+        return 0.06D;
     }
 
     @Override
@@ -254,6 +254,17 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
 
     @Override
     public void readAdditionalSaveData(CompoundTag input) {
+        // Vanilla's entity fixer does not know this mod's entity identifier,
+        // so its custom Item field may still contain pre-component 1.20.1 NBT.
+        if (input.getCompound("Item").contains("Count", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
+            var migrated = net.minecraft.util.datafix.DataFixers.getDataFixer().update(
+                net.minecraft.util.datafix.fixes.References.ITEM_STACK,
+                new com.mojang.serialization.Dynamic<>(net.minecraft.nbt.NbtOps.INSTANCE, input.getCompound("Item").copy()),
+                3465, net.minecraft.SharedConstants.getCurrentVersion().getDataVersion().getVersion()).getValue();
+            if (!(migrated instanceof CompoundTag stack)) throw new IllegalStateException("Legacy projectile item migration failed");
+            input = input.copy();
+            input.put("Item", stack);
+        }
         super.readAdditionalSaveData(input);
         this.thrownStackCount = Math.max(1, input.contains(STACK_COUNT_KEY) ? input.getInt(STACK_COUNT_KEY) : 1);
         this.hitBlock = (input.contains(HIT_BLOCK_KEY) ? input.getBoolean(HIT_BLOCK_KEY) : false);
@@ -376,7 +387,7 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
             damage *= tuning.cleanFlightDamageMultiplier();
         }
 
-        float enchantedDamage = damage + EnchantmentHelper.getDamageBonus(thrownStack, target instanceof LivingEntity living ? living.getMobType() : net.minecraft.world.entity.MobType.UNDEFINED);
+        float enchantedDamage = EnchantmentHelper.modifyDamage(serverLevel, thrownStack, target, source, damage);
         return enchantedDamage * (spear
             ? tuning.spearDamageMultiplier()
             : tuning.standardDamageMultiplier());
@@ -438,8 +449,8 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
         final float[] multipliedBase = new float[] {0.0F};
         final float[] multipliedTotal = new float[] {1.0F};
 
-        thrownStack.getAttributeModifiers(EquipmentSlot.MAINHAND).forEach((attribute, modifier) -> {
-            if (attribute == Attributes.ATTACK_DAMAGE) {
+        thrownStack.forEachModifier(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
+            if (attribute.equals(Attributes.ATTACK_DAMAGE)) {
                 accumulateAttackDamageModifier(modifier, additive, multipliedBase, multipliedTotal);
             }
         });
@@ -456,14 +467,14 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
 
         int fireAspectLevel = SwordThrow.getEnchantmentLevel(
             thrownStack,
-            Enchantments.FIRE_ASPECT
+            serverLevel.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+                .getHolderOrThrow(Enchantments.FIRE_ASPECT)
         );
         if (fireAspectLevel > 0) {
-            target.setSecondsOnFire(fireAspectLevel * 4);
+            target.igniteForSeconds(fireAspectLevel * 4.0F);
         }
 
-        EnchantmentHelper.doPostHurtEffects(target, attacker);
-        EnchantmentHelper.getEnchantments(thrownStack).forEach((enchantment, level) -> enchantment.doPostAttack(attacker, target, level));
+        EnchantmentHelper.doPostAttackEffectsWithItemSource(serverLevel, target, source, thrownStack);
         if (attacker instanceof Player player) {
             thrownStack.hurtEnemy(target, player);
         }
@@ -553,10 +564,10 @@ public class ThrownSwordEntity extends ThrowableItemProjectile {
         float[] multipliedBase,
         float[] multipliedTotal
     ) {
-        switch (modifier.getOperation()) {
-            case ADDITION -> additive[0] += (float)modifier.getAmount();
-            case MULTIPLY_BASE -> multipliedBase[0] += (float)modifier.getAmount();
-            case MULTIPLY_TOTAL -> multipliedTotal[0] *= 1.0F + (float)modifier.getAmount();
+        switch (modifier.operation()) {
+            case ADD_VALUE -> additive[0] += (float)modifier.amount();
+            case ADD_MULTIPLIED_BASE -> multipliedBase[0] += (float)modifier.amount();
+            case ADD_MULTIPLIED_TOTAL -> multipliedTotal[0] *= 1.0F + (float)modifier.amount();
         }
     }
 

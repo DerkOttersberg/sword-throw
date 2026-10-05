@@ -38,7 +38,7 @@ class ThrowItemRulesTest {
     @Test
     void defaultSpearTagExtendsNativeSpearsAndKeepsTridentCompatibility() throws IOException {
         try (InputStream input = ThrowItemRulesTest.class.getResourceAsStream(
-            "/data/swordthrow/tags/items/spears.json"
+            "/data/swordthrow/tags/item/spears.json"
         )) {
             assertNotNull(input, "The default swordthrow:spears tag is missing");
             JsonObject tag = JsonParser.parseReader(
@@ -52,7 +52,7 @@ class ThrowItemRulesTest {
                 .collect(Collectors.toSet());
             assertTrue(entries.contains("#minecraft:spears"), "The optional native spear integration is missing");
             assertFalse(values.get(0).getAsJsonObject().get("required").getAsBoolean(),
-                "1.20.1 does not have the native spear tag; it must remain optional");
+                "1.21.1 does not have the native spear tag; it must remain optional");
             assertTrue(entries.contains("minecraft:trident"), "The trident compatibility fallback is missing");
         }
     }

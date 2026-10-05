@@ -1,53 +1,34 @@
-# Porting Sword Throw
+# Minecraft 1.21.1 porting guide
 
-Sword Throw uses Architectury Loom as build tooling only. Architectury API is not a runtime dependency.
+One version branch holds `common`, `fabric`, `forge` and `neoforge`.
+Pins live only in `gradle/libs.versions.toml`. Java 25 hosts Gradle; Java 21
+compiles/runs Minecraft. Use regular Loom, official Mojang mappings and
+`remapJar`; named development jars are not distributable.
 
-## Update order
+Keep common code free of loader/JEI imports. Inject platform services explicitly;
+no reflective discovery, runtime Architectury API or shaded SeamlessLib.
+Preserve compatibility/registry IDs, public library packages and licensing.
 
-1. Change Minecraft, Java, loaders, Fabric API, Loom, and Seamless API only in `gradle/libs.versions.toml`.
-2. Compile `common` first and adapt shared code using Minecraft’s official names.
-3. Compile Fabric and Forge independently. Loader imports are forbidden in `common`.
-4. Keep both payload IDs and `swordthrow:thrown_sword` stable unless a migration is explicitly supplied.
-5. Run `clean check build`, both loader GameTest tasks, and one real client per loader.
-6. Test all suite mods together with the matching loader jars before release.
+## Version boundaries
 
-## Architecture boundaries
+1.21.1 uses item data components and registry-aware persistence,
+`RecipeHolder`/`CraftingInput`, typed `CustomPacketPayload` networking,
+`DeltaTracker` rendering and vanilla vertex APIs. Use singular data paths:
+`recipe`, `loot_table`, `tags/item`, `structure`. Never downgrade a newer world.
 
-- Gameplay, projectile physics, persistence, charge validation, poses, trail math, screens, and resources belong in `common`.
-- Registration, networking transport, lifecycle events, config-directory lookup, renderer hookup, and config-screen exposure belong in loader modules.
-- Loader services are passed explicitly into `SwordThrow` and `SwordThrowClient`; do not add reflection or `ServiceLoader` discovery.
-- Reuse Seamless API visual contracts. Never copy, shade, or embed those classes into a loader jar.
-- Keep client classes out of server entrypoints so dedicated servers can load the mod without initializing rendering code.
+## Verification
 
-## Compatibility invariants
+Run `clean check build` and inspect all three remapped jars. Forge 52 filters
+GameTest batch namespaces and uses `GameTestDontPrefix`; NeoForge 21 has its
+own template-prefix rules. Test-only source staging must never enter releases.
+Keep test-discovery and required-pass guards.
 
-- Mod ID: `swordthrow`
-- Projectile entity: `swordthrow:thrown_sword`
-- Client config: `swordthrow-client.json`
-- Network payload: `swordthrow:throw_action`
-- S2C pose payload: `swordthrow:throw_state`
-- Server config: `swordthrow-server.json` (schema 1; invalid fields fall back independently)
-- Item tags: `swordthrow:throwable`, `swordthrow:cannot_throw`, `swordthrow:spears`, `swordthrow:embeddable`
+Test independent installs plus dependencies, combined profiles, genuine
+packaged servers, multiplayer, save/restart, migration backups and actual
+optional integrations. Use the private WSL/Xvfb wrapper for GUI checks only;
+never steal desktop focus or inject OS mouse/keyboard input. Software OpenGL
+does not prove physical-GPU coverage; 1.21.1 has no vanilla Vulkan backend.
 
-## Live verification
-
-Each loader must discover the built-in environment test plus all six Sword Throw scenarios; the Gradle tasks fail when fewer than seven tests are reported:
-
-```bash
-./gradlew :fabric:runGameTest
-./gradlew :forge:runGameTestServer
-```
-
-The shared scenario bodies exercise authoritative timing, exact-stack rejection, missing/stale-session rejection, duplicate-start protection, immediate active-session sync for a newly tracking player, configured entity-impact damage, live throwable/cannot-throw tag precedence, embedding versus bounce, NBT-safe pickup, payload codecs, stable registry IDs, and NBT/enchantment/stack-count persistence through projectile save/reload. The late-tracker scenario records the exact observer and attempted `CHARGING` payload at the platform boundary; negotiated delivery and rendered two-client visuals still require the real-client matrix. Release jars must exclude all GameTest bootstrap classes and test-only tag overlays.
-
-Work on the `1.20.1` version branch; preserve `26.2`, `26.3`, and release tags.
-Use short-lived `feat/<name>` or `fix/<name>` branches based on this game line.
-
-## Legacy build boundary
-
-This branch uses regular `dev.architectury.loom` and official Mojang mappings.
-Compile shared sources into each loader module; do not put a remapped common jar
-on a named development runtime classpath. Both loaders need legacy mixin refmaps.
-Only loader remapped `build/libs` jars are distributable. Java 25 hosts Gradle;
-Java 17 is used for compilation and Minecraft. Keep plural 1.20.1 data directories
-and NBT item persistence; newer data components are not interchangeable.
+Icons and all-loader artifact guards are under `gradle/`.
+Historical 1.20.1/26.x helpers and acceptance are not current results. See
+[.github/RELEASE_ACCEPTANCE.md](.github/RELEASE_ACCEPTANCE.md).

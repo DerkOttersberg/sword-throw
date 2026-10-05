@@ -81,10 +81,10 @@ tasks.register('verifyLoaderJars') {
             forge: [
                 expected: 'META-INF/mods.toml',
                 forbidden: ['fabric.mod.json', 'META-INF/neoforge.mods.toml'],
-                loaderVersion: '[47,)',
+                loaderVersion: '[52,)',
                 dependencies: [
-                    forge: ['mandatory=true', 'versionRange="[47.1,48)"'],
-                    minecraft: ['mandatory=true', 'versionRange="[1.20.1,1.20.2)"'],
+                    forge: ['mandatory=true', 'versionRange="[52.1.16,53)"'],
+                    minecraft: ['mandatory=true', 'versionRange="[1.21.1]"'],
                     seamlessapi: ['mandatory=true', 'versionRange="[2.0.0,3.0.0)"']
                 ]
             ]
@@ -100,7 +100,7 @@ tasks.register('verifyLoaderJars') {
                     new DataInputStream(zip.getInputStream(entry)).withCloseable { header ->
                         if (header.readInt() != -889275714) throw new GradleException("Invalid class: ${entry.name}")
                         header.readUnsignedShort()
-                        if (header.readUnsignedShort() > 61) throw new GradleException("Not Java 17 bytecode: ${entry.name}")
+                        if (header.readUnsignedShort() > 65) throw new GradleException("Not Java 21 bytecode: ${entry.name}")
                     }
                 }
                 def metadataEntry = zip.getEntry(specification.expected)
@@ -121,9 +121,9 @@ tasks.register('verifyLoaderJars') {
                     }
                     def expectedDependencies = [
                         fabricloader: '>=0.19.5',
-                        'fabric-api': '>=0.92.12 <0.93.0',
-                        minecraft: '1.20.1',
-                        java: '>=17',
+                        'fabric-api': '>=0.116.17 <0.117.0',
+                        minecraft: libs.versions.minecraft.get(),
+                        java: '>=21',
                         seamlessapi: '>=2.0.0 <3.0.0'
                     ]
                     expectedDependencies.each { dependencyId, expectedRange ->
@@ -146,7 +146,7 @@ tasks.register('verifyLoaderJars') {
                         'modId="swordthrow"',
                         "version=\"${project.version}\"",
                         '[features.swordthrow]',
-                        'javaVersion="[17,)"'
+                        'javaVersion="[21,)"'
                     ]
                     requiredCoreValues.each { value ->
                         if (!metadata.contains(value)) {
@@ -186,10 +186,10 @@ tasks.register('verifyLoaderJars') {
                     'io/github/derkottersberg/swordthrow/config/SwordThrowServerConfig.class',
                     'io/github/derkottersberg/swordthrow/gameplay/ThrowItemRules.class',
                     'io/github/derkottersberg/swordthrow/network/ThrowStatePayload.class',
-                    'data/swordthrow/tags/items/throwable.json',
-                    'data/swordthrow/tags/items/cannot_throw.json',
-                    'data/swordthrow/tags/items/spears.json',
-                    'data/swordthrow/tags/items/embeddable.json'
+                    'data/swordthrow/tags/item/throwable.json',
+                    'data/swordthrow/tags/item/cannot_throw.json',
+                    'data/swordthrow/tags/item/spears.json',
+                    'data/swordthrow/tags/item/embeddable.json'
                 ].each { requiredEntry ->
                     if (zip.getEntry(requiredEntry) == null) {
                         throw new GradleException("${archive.name} is missing ${requiredEntry}")
@@ -201,8 +201,8 @@ tasks.register('verifyLoaderJars') {
                 }
                 [
                     'io/github/derkottersberg/swordthrow/config/SwordThrowGameTestConfigAccess.class',
-                    'data/swordthrow/tags/items/gametest_throwable.json',
-                    'data/swordthrow/tags/items/gametest_cannot_throw.json'
+                    'data/swordthrow/tags/item/gametest_throwable.json',
+                    'data/swordthrow/tags/item/gametest_cannot_throw.json'
                 ].each { testOnlyEntry ->
                     if (packagedEntries.contains(testOnlyEntry)) {
                         throw new GradleException("${archive.name} improperly ships ${testOnlyEntry}")
@@ -231,3 +231,5 @@ tasks.named('check') {
     dependsOn tasks.named('verifyLoaderJars')
     dependsOn subprojects.collect { it.tasks.named('check') }
 }
+
+apply from: rootProject.file('gradle/verify-mc1211-artifacts.gradle')
