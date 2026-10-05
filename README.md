@@ -72,4 +72,9 @@ The mod ID remains `swordthrow`, the projectile registry ID remains `swordthrow:
 
 ## License
 
-Sword Throw retains its existing [CC0 1.0 Universal](LICENSE) license.
+**All Rights Reserved** for new original material owned by Derk Ottersberg.
+See [LICENSE](LICENSE) and [licensing history](LICENSES/README.md) for prior-license and third-party exceptions.
+
+Public source may be viewed and forked on GitHub. Issues and pull requests are welcome;
+write access to this repository is reserved for the owner.
+
